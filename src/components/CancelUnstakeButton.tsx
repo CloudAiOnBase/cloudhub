@@ -12,7 +12,7 @@ export default function CancelUnstakeButton({ amountUnstaking, refetchStakerData
   refetchStakerData: () => void;
   refetchAvailableRewards: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { writeContractAsync } = useWriteContract();
   const chainId = useChainId();
