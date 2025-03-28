@@ -15,60 +15,79 @@ import ClaimRewardsButton from '@/components/ClaimRewardsButton';
 export default function StakingPage() {
   const { address: userAddress } = useAccount();
 	const chainId = useChainId();
-	const stakingAddress = CONTRACTS.STAKING_ADDRESSES[chainId];
-	const tokenAddress = CONTRACTS.TOKEN_ADDRESSES[chainId];
+	type ChainId = keyof typeof CONTRACTS.STAKING_ADDRESSES;
+	const stakingAddress = CONTRACTS.STAKING_ADDRESSES[chainId as ChainId];
+  const tokenAddress = CONTRACTS.TOKEN_ADDRESSES[chainId as ChainId];
 
+  // User balance
+	const {
+	  data: balanceData,
+	  refetch: refetchUserBalance,
+	} = useReadContract({
+	  abi: tokenAbi,
+	  address: tokenAddress as `0x${string}`,
+	  functionName: 'balanceOf',
+	  args: [userAddress],
+	  query: {
+	    enabled: !!userAddress,
+	  },
+	});
+	const userBalance = balanceData as bigint;
 
-  const { data: userBalance, refetch: refetchUserBalance } = useReadContract({
-    abi: tokenAbi,
-    address: tokenAddress,
-    functionName: 'balanceOf',
-    args: [userAddress],
-		query: {
-		  enabled: !!userAddress,
-		  queryKey: ['userBalance', userAddress],
-		},
-  });
+	// Staker data
+	const {
+	  data: stakerRawData,
+	  refetch: refetchStakerData,
+	} = useReadContract({
+	  abi: stakingAbi,
+	  address: stakingAddress as `0x${string}`,
+	  functionName: 'stakers',
+	  args: [userAddress],
+	  query: {
+	    enabled: !!userAddress,
+	  },
+	});
+	const stakerData = stakerRawData as [bigint, number, bigint, number, bigint];
 
-	const { data: stakerData, refetch: refetchStakerData } = useReadContract({
-		abi: stakingAbi,
-		address: stakingAddress,
-		functionName: 'stakers',
-		args: [userAddress],
-		query: {
-		  enabled: !!userAddress,
-		  queryKey: ['stakerData', userAddress],
-		},
+	// Available rewards
+	const {
+	  data: availableRewards,
+	  refetch: refetchAvailableRewards,
+	} = useReadContract({
+	  abi: stakingAbi,
+	  address: stakingAddress as `0x${string}`,
+	  functionName: 'calculateRewards',
+	  args: [userAddress],
+	  query: {
+	    enabled: !!userAddress,
+	  },
 	});
 
-  const { data: availableRewards, refetch: refetchAvailableRewards } = useReadContract({
-    abi: stakingAbi,
-    address: stakingAddress,
-    functionName: 'calculateRewards',
-    args: [userAddress],
-    query: { 
-			enabled: !!userAddress,
-			queryKey: ['availableRewards', userAddress]
-		},
-  });
- 
-	const { data: stakingParams } = useReadContract({
-		abi: stakingAbi,
-		address: stakingAddress,
-		functionName: "getStakingParams",
-		query: {
-		  enabled: Boolean(userAddress),
-		},
+	// Staking params
+	const {
+	  data: stakingParams,
+	} = useReadContract({
+	  abi: stakingAbi,
+	  address: stakingAddress as `0x${string}`,
+	  functionName: 'getStakingParams',
+	  query: {
+	    enabled: !!userAddress,
+	  },
+	});
+	const stakingParamsTyped = stakingParams as [bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint];
+
+	// APR (scaled by 100)
+	const {
+	  data: aprE2,
+	} = useReadContract({
+	  abi: stakingAbi,
+	  address: stakingAddress as `0x${string}`,
+	  functionName: 'getAprE2',
+	  query: {
+	    enabled: !!userAddress,
+	  },
 	});
 
-  const { data: aprE2 } = useReadContract({
-		abi: stakingAbi,
-		address: stakingAddress,
-		functionName: "getAprE2",
-		query: {
-		  enabled: Boolean(userAddress),
-		},
-	});
 
 	const now = Date.now(); // current time in ms
 	const nowSeconds = Math.floor(now / 1000);
@@ -82,13 +101,13 @@ export default function StakingPage() {
 	const totalEarned = stakerData?.[4] ?? 0n;
 
 	// Cooldown logic
-	const cooldownDays = Number(stakingParams?.[1] ?? 0);
+	const cooldownDays = Number(stakingParamsTyped?.[1] ?? 0);
 	const cooldownMs = cooldownDays * 24 * 60 * 60 * 1000;
 	const claimableTimestamp = unstakingStartTime + cooldownMs;
 	const canClaim = now >= claimableTimestamp && unstakingAmount > 0n;
 
 	// Minimum to stake
-	const minimum = parseUnits(String(stakingParams?.[0] ?? '0'), 18);
+  const minimum = parseUnits(String(stakingParamsTyped?.[0] ?? '0'), 18);
 	const minimumToStake = minimum > staked ? minimum - staked : 0n;
 
 	// % Staked
@@ -163,7 +182,7 @@ export default function StakingPage() {
 							userBalance={userBalance}
 							amountUnstaking={stakerData?.[2] ?? 0n}
 							minimumToStake={minimumToStake}
-							cooldownDays={cooldownDays}
+							cooldownDays={BigInt(cooldownDays)}
 							refetchUserBalance={refetchUserBalance}
 							refetchStakerData={refetchStakerData}
 							refetchAvailableRewards={refetchAvailableRewards}
@@ -180,7 +199,7 @@ export default function StakingPage() {
 						<UnstakeButton
 							maxUnstakable={stakerData?.[0] ?? 0n}
 							amountUnstaking={stakerData?.[2] ?? 0n}
-							cooldownDays={cooldownDays}
+							cooldownDays={BigInt(cooldownDays)}
 							refetchStakerData={refetchStakerData}
 							refetchAvailableRewards={refetchAvailableRewards}
 						/>
@@ -226,7 +245,7 @@ export default function StakingPage() {
 
 					<div className="flex items-center justify-between mt-2">
 						<p className="text-2xl font-bold text-gray-900">
-							≈ {format(availableRewards)} CLOUD
+							≈ {format(availableRewards as bigint)} CLOUD
 						</p>
 						{staked > 1n && totalEarned > 1n && lastClaim > 0 && (
 						  <div className="text-sm text-gray-500 mt-1">
@@ -234,7 +253,7 @@ export default function StakingPage() {
 						  </div>
 						)}
 						<ClaimRewardsButton
-							availableRewards={availableRewards}
+							availableRewards={availableRewards as bigint}
 							refetchUserBalance={refetchUserBalance}
 							refetchAvailableRewards={refetchAvailableRewards}
 						/>

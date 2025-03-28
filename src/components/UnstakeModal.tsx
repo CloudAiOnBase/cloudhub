@@ -24,12 +24,19 @@ export default function UnstakeModal({ isOpen, onClose, maxAmount, amountUnstaki
   const { address } = useAccount();
   const amount = input ? parseUnits(input, 18) : 0n;
   const publicClient = usePublicClient();
+  type ChainId = keyof typeof CONTRACTS.STAKING_ADDRESSES;
 	
+
+  let toastId: string;
+
   const handleUnstake = async () => {
     if (!address || !input) return;
+
+   
+
     try {
       setLoading(true);
-      const staking = CONTRACTS.STAKING_ADDRESSES[chainId];
+      const staking = CONTRACTS.STAKING_ADDRESSES[chainId as ChainId]  as `0x${string}`;
 
       // Unstake
       const txHash = await writeContractAsync({
@@ -39,9 +46,10 @@ export default function UnstakeModal({ isOpen, onClose, maxAmount, amountUnstaki
         args: [amount],
       });
 
-      const toastId = toast.loading('Waiting for confirmation...');
+      toastId = toast.loading('Waiting for confirmation...');
 
 			// Wait for the transaction to be mined
+      if (!publicClient) return;
 			await publicClient.waitForTransactionReceipt({ hash: txHash });
 
 			await refetchStakerData();

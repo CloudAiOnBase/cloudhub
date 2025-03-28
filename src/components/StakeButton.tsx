@@ -7,7 +7,7 @@ import StakeModal from './StakeModal';
 export default function StakeButton({ userBalance, amountUnstaking, minimumToStake, cooldownDays, refetchUserBalance, refetchStakerData, refetchAvailableRewards }: {
   userBalance: bigint;
   amountUnstaking: bigint;
-  minimumToStake: minimumToStake;
+  minimumToStake: bigint;
   cooldownDays: bigint;
   refetchUserBalance: () => void;
   refetchStakerData: () => void;

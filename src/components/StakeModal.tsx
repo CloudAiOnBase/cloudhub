@@ -15,7 +15,7 @@ export default function StakeModal({ isOpen, onClose, maxAmount, amountUnstaking
   onClose: () => void;
   maxAmount: bigint | undefined;
   amountUnstaking: bigint;
-  minimumToStake: minimumToStake;
+  minimumToStake: bigint;
   cooldownDays: bigint;
   refetchUserBalance: () => void;
   refetchStakerData: () => void;
@@ -25,31 +25,38 @@ export default function StakeModal({ isOpen, onClose, maxAmount, amountUnstaking
   const [loading, setLoading] = useState(false);
   const { writeContractAsync } = useWriteContract();
   const chainId = useChainId();
+  type ChainId = keyof typeof CONTRACTS.STAKING_ADDRESSES;
+  const stakingAddress = CONTRACTS.STAKING_ADDRESSES[chainId as ChainId];
+ 
+
   const { address } = useAccount();
   const amount = input ? parseUnits(input, 18) : 0n;
-	const { isEnough } = useAllowanceCheck(address, CONTRACTS.STAKE_VAULT_ADDRESSES[chainId], amount, chainId);
+	const { isEnough } = useAllowanceCheck(address, stakingAddress, amount, chainId);
   const publicClient = usePublicClient();
   const isBelowMinimum = amount < minimumToStake;
+
+  let toastId2: string;
 
   const handleStake = async () => {
     if (!address || !input) return;
     try {
       setLoading(true);
-      const token = CONTRACTS.TOKEN_ADDRESSES[chainId];
-      const staking = CONTRACTS.STAKING_ADDRESSES[chainId];
-			const stakeVault = CONTRACTS.STAKE_VAULT_ADDRESSES[chainId];
+      const token = CONTRACTS.TOKEN_ADDRESSES[chainId as ChainId];
+      const staking = CONTRACTS.STAKING_ADDRESSES[chainId as ChainId];
+      const stakeVault = CONTRACTS.STAKE_VAULT_ADDRESSES[chainId as ChainId];
 
       // Approve
 			if (!isEnough) {
 		    const txHash1 = await writeContractAsync({
 		      abi: tokenAbi,
-		      address: token,
+		      address: token as `0x${string}`,
 		      functionName: 'approve',
 		      args: [stakeVault, amount],
 		    });
 
         toast.loading('Processing transaction 1 of 2...');
 
+        if (!publicClient) return;
         await publicClient.waitForTransactionReceipt({ hash: txHash1 });
 
         toast.dismiss(); // no arguments = close all
@@ -58,14 +65,15 @@ export default function StakeModal({ isOpen, onClose, maxAmount, amountUnstaking
       // Stake
       const txHash2 = await writeContractAsync({
         abi: stakingAbi,
-        address: staking,
+        address: staking as `0x${string}`,
         functionName: 'stake',
         args: [amount],
       });
 
-      const toastId2 = toast.loading('Waiting for confirmation...');
+      toastId2 = toast.loading('Waiting for confirmation...');
 
 			// Wait for the transaction to be mined
+      if (!publicClient) return;
 			await publicClient.waitForTransactionReceipt({ hash: txHash2 });
 
 			await refetchUserBalance();

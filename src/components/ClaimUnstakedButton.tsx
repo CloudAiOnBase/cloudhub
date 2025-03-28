@@ -23,14 +23,16 @@ export default function ClaimUnstakedButton({
   const chainId = useChainId();
   const { address } = useAccount();
   const publicClient = usePublicClient();
-
+  type ChainId = keyof typeof CONTRACTS.STAKING_ADDRESSES;
   const isDisabled = !amountUnstaked || amountUnstaked === 0n || loading;
+
+  let toastId: string;
 
   const handleClaim = async () => {
     if (!address) return;
     try {
       setLoading(true);
-      const staking = CONTRACTS.STAKING_ADDRESSES[chainId];
+      const staking = CONTRACTS.STAKING_ADDRESSES[chainId as ChainId];
 
       const txHash = await writeContractAsync({
         abi: stakingAbi,
@@ -39,8 +41,9 @@ export default function ClaimUnstakedButton({
         args: [],
       });
 
-      const toastId = toast.loading('Waiting for confirmation...');
+      toastId = toast.loading('Waiting for confirmation...');
 
+      if (!publicClient) return;
       await publicClient.waitForTransactionReceipt({ hash: txHash });
 			await refetchUserBalance();
       await refetchStakerData();

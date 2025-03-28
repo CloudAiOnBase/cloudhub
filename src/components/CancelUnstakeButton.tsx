@@ -12,18 +12,21 @@ export default function CancelUnstakeButton({ amountUnstaking, refetchStakerData
   refetchStakerData: () => void;
   refetchAvailableRewards: () => void;
 }) {
-  const [setOpen] = useState(false); // `open` can be used later for a modal confirmation if needed
+  const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { writeContractAsync } = useWriteContract();
   const chainId = useChainId();
   const { address } = useAccount();
   const publicClient = usePublicClient();
+  type ChainId = keyof typeof CONTRACTS.STAKING_ADDRESSES;
+
+  let toastId: string;
 
   const handleCancelUnstake = async () => {
     if (!address) return;
     try {
       setLoading(true);
-      const staking = CONTRACTS.STAKING_ADDRESSES[chainId];
+      const staking = CONTRACTS.STAKING_ADDRESSES[chainId as ChainId];
 
       const txHash = await writeContractAsync({
         abi: stakingAbi,
@@ -32,9 +35,10 @@ export default function CancelUnstakeButton({ amountUnstaking, refetchStakerData
         args: [],
       });
 
-      const toastId = toast.loading('Waiting for confirmation...');
+      toastId = toast.loading('Waiting for confirmation...');
 
 			// Wait for the transaction to be mined
+      if (!publicClient) return;
 			await publicClient.waitForTransactionReceipt({ hash: txHash });
 
       await refetchStakerData();
