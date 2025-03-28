@@ -16,7 +16,6 @@ export default function Topbar({ onOpenSidebar }: TopbarProps) {
   const chainId = useChainId();
   const chains = useChains();
   const chain = chains.find((c) => c.id === chainId);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     

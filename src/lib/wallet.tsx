@@ -1,6 +1,6 @@
 'use client';
 
-import { WagmiConfig, createConfig, http } from 'wagmi';
+import { WagmiConfig, http } from 'wagmi';
 import { base, baseSepolia } from 'wagmi/chains';
 import { chains } from './chains';
 import { RainbowKitProvider, getDefaultConfig } from '@rainbow-me/rainbowkit';

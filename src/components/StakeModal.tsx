@@ -48,7 +48,7 @@ export default function StakeModal({ isOpen, onClose, maxAmount, amountUnstaking
 		      args: [stakeVault, amount],
 		    });
 
-        const toastId1 = toast.loading('Processing transaction 1 of 2...');
+        toast.loading('Processing transaction 1 of 2...');
 
         await publicClient.waitForTransactionReceipt({ hash: txHash1 });
 

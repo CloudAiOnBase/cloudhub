@@ -12,7 +12,7 @@ export default function ClaimRewardsButton({ availableRewards, refetchUserBalanc
   refetchUserBalance: () => void;
   refetchAvailableRewards: () => void;
 }) {
-  const [open, setOpen] = useState(false); // `open` can be used later for a modal confirmation if needed
+  const [setOpen] = useState(false); // `open` can be used later for a modal confirmation if needed
   const [loading, setLoading] = useState(false);
   const { writeContractAsync } = useWriteContract();
   const chainId = useChainId();
