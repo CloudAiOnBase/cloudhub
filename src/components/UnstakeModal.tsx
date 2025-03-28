@@ -3,21 +3,17 @@
 import { useState, useEffect } from 'react';
 import { Dialog } from '@headlessui/react';
 import { useWriteContract, useChainId, useAccount, usePublicClient } from 'wagmi';
-import tokenAbi from '@/abi/CloudToken.json';
 import stakingAbi from '@/abi/CloudStaking.json';
 import { CONTRACTS } from '@/constants/contracts';
 import { formatUnits, parseUnits } from 'viem';
-import { useAllowanceCheck } from '@/lib/hooks/useAllowanceCheck';
 import { toast } from 'react-hot-toast';
 
-export default function StakeModal({ isOpen, onClose, maxAmount, amountUnstaking, minimumToStake, cooldownDays, refetchUserBalance, refetchStakerData, refetchAvailableRewards }: {
+export default function UnstakeModal({ isOpen, onClose, maxAmount, amountUnstaking, cooldownDays, refetchStakerData, refetchAvailableRewards }: {
   isOpen: boolean;
   onClose: () => void;
   maxAmount: bigint | undefined;
   amountUnstaking: bigint;
-  minimumToStake: minimumToStake;
   cooldownDays: bigint;
-  refetchUserBalance: () => void;
   refetchStakerData: () => void;
   refetchAvailableRewards: () => void;
 }) {
@@ -27,48 +23,27 @@ export default function StakeModal({ isOpen, onClose, maxAmount, amountUnstaking
   const chainId = useChainId();
   const { address } = useAccount();
   const amount = input ? parseUnits(input, 18) : 0n;
-	const { isEnough } = useAllowanceCheck(address, CONTRACTS.STAKE_VAULT_ADDRESSES[chainId], amount, chainId);
   const publicClient = usePublicClient();
-  const isBelowMinimum = amount < minimumToStake;
-
-  const handleStake = async () => {
+	
+  const handleUnstake = async () => {
     if (!address || !input) return;
     try {
       setLoading(true);
-      const token = CONTRACTS.TOKEN_ADDRESSES[chainId];
       const staking = CONTRACTS.STAKING_ADDRESSES[chainId];
-			const stakeVault = CONTRACTS.STAKE_VAULT_ADDRESSES[chainId];
 
-      // Approve
-			if (!isEnough) {
-		    const txHash1 = await writeContractAsync({
-		      abi: tokenAbi,
-		      address: token,
-		      functionName: 'approve',
-		      args: [stakeVault, amount],
-		    });
-
-        const toastId1 = toast.loading('Processing transaction 1 of 2...');
-
-        await publicClient.waitForTransactionReceipt({ hash: txHash1 });
-
-        toast.dismiss(); // no arguments = close all
-			}
-
-      // Stake
-      const txHash2 = await writeContractAsync({
+      // Unstake
+      const txHash = await writeContractAsync({
         abi: stakingAbi,
         address: staking,
-        functionName: 'stake',
+        functionName: 'initiateUnstake',
         args: [amount],
       });
 
-      const toastId2 = toast.loading('Waiting for confirmation...');
+      const toastId = toast.loading('Waiting for confirmation...');
 
 			// Wait for the transaction to be mined
-			await publicClient.waitForTransactionReceipt({ hash: txHash2 });
+			await publicClient.waitForTransactionReceipt({ hash: txHash });
 
-			await refetchUserBalance();
 			await refetchStakerData();
       await refetchAvailableRewards();
 
@@ -77,13 +52,14 @@ export default function StakeModal({ isOpen, onClose, maxAmount, amountUnstaking
           Transaction confirmed! <br />
           Rewards claimed automatically.
         </>,
-        { id: toastId2 }
+        { id: toastId }
       );
+      
 
       onClose();
     } catch (err) {
-      console.error('Stake failed', err);
-      toast.error('Staking failed. Please try again.');
+      console.error('Unstake failed', err);
+      toast.error('Unstaking failed. Please try again.', { id: toastId });
     } finally {
       setLoading(false);
     }
@@ -99,7 +75,7 @@ export default function StakeModal({ isOpen, onClose, maxAmount, amountUnstaking
     <Dialog open={isOpen} onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/40" />
       <Dialog.Panel className="z-10 bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-        <Dialog.Title className="text-lg font-semibold mb-4 text-gray-800">Stake</Dialog.Title>
+        <Dialog.Title className="text-lg font-semibold mb-4 text-gray-800">Unstake</Dialog.Title>
 				<div className="space-y-4">
         	<div className="flex items-center gap-2">
 						<input
@@ -114,24 +90,19 @@ export default function StakeModal({ isOpen, onClose, maxAmount, amountUnstaking
 						 <span className="text-sm text-gray-600 font-medium">CLOUD</span>
 					</div>
           <button
-            disabled={loading || !input || isBelowMinimum}
-            onClick={handleStake}
+            disabled={loading || !input}
+            onClick={handleUnstake}
             className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
           >
-            {loading ? 'Staking...' : 'Confirm Stake'}
+            {loading ? 'Unstaking...' : 'Confirm Unstake'}
           </button>
           {amountUnstaking > 0n && (
             <p className="text-sm text-red-600 font-medium flex items-center gap-1">
-              ⚠️ Staking will cancel any ongoing unstaking process.
-            </p>
-          )}
-          {input && isBelowMinimum && (
-            <p className="text-sm text-gray-500 mt-2">
-              Minimum {Math.ceil(Number(formatUnits(minimumToStake, 18)))} CLOUD.
+              ⚠️ Unstaking will cancel any ongoing unstaking process.
             </p>
           )}
           <p className="text-sm text-gray-500 mt-2">
-            Once staked, your CLOUD tokens will be subject to a {cooldownDays}-day cooldown when you unstake.
+            After unstaking, your tokens will enter a {cooldownDays}-day cooldown. You’ll be able to claim them once the cooldown ends.
           </p>
         </div>
       </Dialog.Panel>

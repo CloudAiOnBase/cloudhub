@@ -5,6 +5,7 @@ import { useChainId, useChains } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { Bars3Icon } from '@heroicons/react/24/outline';
 
+
 type TopbarProps = {
   onOpenSidebar: () => void;
 };
@@ -25,9 +26,9 @@ export default function Topbar({ onOpenSidebar }: TopbarProps) {
       </button>
 
 		<div className="flex items-center gap-4 ml-auto">
-		  {chain?.testnet && (
-		    <span className="text-sm px-2 py-1 bg-yellow-100 text-yellow-700 rounded">Testnet</span>
-		  )}
+			{mounted && chain?.testnet && (
+			  <span className="text-sm px-2 py-1 bg-yellow-100 text-yellow-700 rounded">Testnet</span>
+			)}
 		  <ConnectButton />
 		</div>
 	</header>

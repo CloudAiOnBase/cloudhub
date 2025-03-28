@@ -1,44 +1,39 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowUpRightIcon } from '@heroicons/react/20/solid';
-import StakeModal from './StakeModal';
+import { ArrowDownLeftIcon } from '@heroicons/react/20/solid';
+import UnstakeModal from './UnstakeModal';
 
-export default function StakeButton({ userBalance, amountUnstaking, minimumToStake, cooldownDays, refetchUserBalance, refetchStakerData, refetchAvailableRewards }: {
-  userBalance: bigint;
+export default function UnstakeButton({ maxUnstakable, amountUnstaking, cooldownDays, refetchStakerData, refetchAvailableRewards }: {
+  maxUnstakable: bigint;
   amountUnstaking: bigint;
-  minimumToStake: minimumToStake;
   cooldownDays: bigint;
-  refetchUserBalance: () => void;
   refetchStakerData: () => void;
   refetchAvailableRewards: () => void;
 }) {
   const [open, setOpen] = useState(false);
-
   return (
     <>
       <button
         onClick={() => setOpen(true)}
-        disabled={!userBalance || userBalance === 0n}
+        disabled={!maxUnstakable || maxUnstakable === 0n}
         className={`flex items-center gap-2 font-medium py-2 px-4 rounded-full shadow-sm transition 
           ${
-            !userBalance || userBalance === 0n
+            !maxUnstakable || maxUnstakable === 0n
               ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
               : 'bg-blue-600 hover:bg-blue-700 text-white'
           }`}
       >
-        <ArrowUpRightIcon className="h-5 w-5" />
-        <span>Stake</span>
+        <ArrowDownLeftIcon className="h-5 w-5" />
+        <span>Unstake</span>
       </button>
 
-			<StakeModal
+			<UnstakeModal
 				isOpen={open}
 				onClose={() => setOpen(false)}
-				maxAmount={userBalance}
+				maxAmount={maxUnstakable}
         amountUnstaking={amountUnstaking}
-        minimumToStake={minimumToStake}
         cooldownDays={cooldownDays}
-				refetchUserBalance={refetchUserBalance}
 				refetchStakerData={refetchStakerData}
         refetchAvailableRewards={refetchAvailableRewards}
 			/>

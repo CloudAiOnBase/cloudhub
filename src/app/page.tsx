@@ -1,3 +1,15 @@
+// app/page.tsx
+import { redirect } from 'next/navigation';
+
+export default function Home() {
+  redirect('/staking');
+}
+
+
+
+/*
+
+
 'use client';
 
 export default function DashboardPage() {
@@ -36,3 +48,5 @@ export default function DashboardPage() {
   );
 }
 
+
+*/
