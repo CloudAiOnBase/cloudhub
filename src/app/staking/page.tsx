@@ -1,7 +1,7 @@
 'use client';
 
 import { useAccount, useChainId, useReadContract } from 'wagmi';
-import tokenAbi from '@/abi/CloudToken.json';
+import tokenAbi from '@/abi/CloudToken.json'; // ERC20 ABI
 import stakingAbi from '@/abi/CloudStaking.json';
 import { formatUnits } from 'viem';
 import { CONTRACTS } from '@/constants/contracts';
@@ -11,6 +11,7 @@ import {
   ArrowDownLeftIcon,
   XCircleIcon,
 } from '@heroicons/react/20/solid';
+import StakeButton from '@/components/StakeButton';
 
 export default function StakingPage() {
   const { address: userAddress } = useAccount();
@@ -19,21 +20,27 @@ export default function StakingPage() {
 	const tokenAddress = CONTRACTS.TOKEN_ADDRESSES[chainId];
 
 
-  const { data: userBalance } = useReadContract({
+  const { data: userBalance, refetch: refetchUserBalance } = useReadContract({
     abi: tokenAbi,
     address: tokenAddress,
     functionName: 'balanceOf',
     args: [userAddress],
-    query: { enabled: !!userAddress },
+		query: {
+		  enabled: !!userAddress,
+		  queryKey: ['userBalance', userAddress], // ✅ put it inside query
+		},
   });
 
-  const { data: stakerData } = useReadContract({
-    abi: stakingAbi,
-    address: stakingAddress,
-    functionName: 'stakers',
-    args: [userAddress],
-    query: { enabled: !!userAddress },
-  });
+	const { data: stakerData, refetch: refetchStakerData } = useReadContract({
+		abi: stakingAbi,
+		address: stakingAddress,
+		functionName: 'stakers',
+		args: [userAddress],
+		query: {
+		  enabled: !!userAddress,
+		  queryKey: ['stakerData', userAddress], // ✅ put it inside query
+		},
+	});
 
   const { data: availableRewards } = useReadContract({
     abi: stakingAbi,
@@ -70,18 +77,11 @@ export default function StakingPage() {
 						<p className="text-2xl font-bold text-gray-900">
              {format(userBalance)} CLOUD
 		        </p>
-						<button
-						disabled={!userBalance || userBalance === 0n}
-						className={`flex items-center gap-2 font-medium py-2 px-4 rounded-full shadow-sm transition 
-							${
-								!userBalance || userBalance === 0n
-									? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-									: 'bg-blue-600 hover:bg-blue-700 text-white'
-							}`}
-						>
-						<ArrowUpRightIcon className="h-5 w-5" />
-							<span>Stake</span>
-						</button>
+						<StakeButton
+							userBalance={userBalance}
+							refetchUserBalance={refetchUserBalance}
+							refetchStakerData={refetchStakerData}
+						/>
           </div>
 			  </div>
 
