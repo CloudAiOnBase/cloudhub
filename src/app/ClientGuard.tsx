@@ -6,14 +6,15 @@ export default function ClientGuard() {
   const [isTelegram, setIsTelegram] = useState(false)
 
   useEffect(() => {
-    const tgProxyExists =
-      typeof window !== 'undefined' &&
-      // @ts-ignore
-      (typeof window.TelegramWebviewProxy !== 'undefined' ||
-       typeof window.Telegram?.WebApp !== 'undefined')
+    if (typeof window !== 'undefined') {
+      const w = window as any
+      const isInTelegram =
+        typeof w.TelegramWebviewProxy !== 'undefined' ||
+        typeof w.Telegram?.WebApp !== 'undefined'
 
-    if (tgProxyExists) {
-      setIsTelegram(true)
+      if (isInTelegram) {
+        setIsTelegram(true)
+      }
     }
   }, [])
 
