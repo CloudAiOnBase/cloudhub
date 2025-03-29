@@ -1,21 +1,28 @@
 'use client';
 
-import { WagmiConfig, http } from 'wagmi';
+import { WagmiConfig, createConfig, http } from 'wagmi';
 import { base, baseSepolia } from 'wagmi/chains';
-import { RainbowKitProvider, getDefaultConfig } from '@rainbow-me/rainbowkit';
+import { RainbowKitProvider, getDefaultWallets } from '@rainbow-me/rainbowkit';
 import '@rainbow-me/rainbowkit/styles.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const queryClient = new QueryClient();
 
-// chains defined inline to match types
-const config = getDefaultConfig({
+const { connectors } = getDefaultWallets({
   appName: 'CloudHub',
   projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!,
-  chains: [base, baseSepolia], // ✅ Inline avoids type mismatches
-  transports: {
-    [base.id]: http(),
-    [baseSepolia.id]: http(),
+  chains: [base, baseSepolia],
+});
+
+const config = createConfig({
+  autoConnect: true,
+  connectors,
+  publicClient: http(),
+  chains: [base, baseSepolia],
+  logger: {
+    warn: null,
+    error: null,
+    info: null,
   },
 });
 

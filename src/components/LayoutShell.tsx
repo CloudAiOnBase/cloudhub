@@ -1,49 +1,32 @@
-import { useEffect, useState } from 'react'
-import { useAccount, useConnect } from 'wagmi'
+'use client';
 
-function ManualReconnectPrompt() {
-  const { isConnected } = useAccount()
-  const { connectors, connect } = useConnect()
-  const [shouldShow, setShouldShow] = useState(false)
+import { useState } from 'react';
+import Sidebar from './Sidebar';
+import Topbar from './Topbar';
 
-  useEffect(() => {
-    const checkAccounts = async () => {
-      if (typeof window !== 'undefined' && (window as any).ethereum?.request) {
-        try {
-          const accounts: string[] = await (window as any).ethereum.request({
-            method: 'eth_accounts',
-          })
-
-          if (accounts.length > 0 && !isConnected) {
-            setShouldShow(true)
-          }
-        } catch (err) {
-          console.error('Error fetching accounts:', err)
-        }
-      }
-    }
-
-    checkAccounts()
-  }, [isConnected])
-
-  const handleReconnect = () => {
-    const metamask = connectors.find((c) => c.id === 'metaMask')
-    if (metamask?.ready) {
-      connect({ connector: metamask })
-    }
-  }
-
-  if (!shouldShow) return null
+export default function LayoutShell({ children }: { children: React.ReactNode }) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="bg-yellow-100 text-yellow-800 p-3 text-center text-sm">
-      <p className="mb-2">You’re approved in MetaMask, but not connected here.</p>
-      <button
-        onClick={handleReconnect}
-        className="bg-yellow-600 text-white px-4 py-2 rounded"
-      >
-        Reconnect Wallet
-      </button>
+    <div className="flex min-h-screen">
+      {/* Mobile Sidebar Drawer */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 md:hidden">
+          <Sidebar mobile onClose={() => setSidebarOpen(false)} />
+        </div>
+      )}
+
+      {/* Desktop Sidebar */}
+     <div className="hidden md:flex w-64 flex-col bg-white border-r flex-shrink-0">
+  		<Sidebar />
+		 </div>
+
+      <div className="flex flex-col flex-1">
+        <Topbar onOpenSidebar={() => setSidebarOpen(true)} />
+        <main className="flex-1 overflow-y-auto p-6 bg-gray-50">{children}</main>
+      </div>
     </div>
-  )
+  );
 }
+
+
