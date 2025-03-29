@@ -6,13 +6,13 @@ export default function ClientGuard() {
   const [isTelegram, setIsTelegram] = useState(false)
 
   useEffect(() => {
-    // Safe check
-    const isInTelegram =
+    const tgProxyExists =
       typeof window !== 'undefined' &&
       // @ts-ignore
-      (typeof TelegramWebviewProxy !== 'undefined' || typeof Telegram !== 'undefined')
+      (typeof window.TelegramWebviewProxy !== 'undefined' ||
+       typeof window.Telegram?.WebApp !== 'undefined')
 
-    if (isInTelegram) {
+    if (tgProxyExists) {
       setIsTelegram(true)
     }
   }, [])
@@ -23,7 +23,7 @@ export default function ClientGuard() {
     <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center px-4 text-center">
       <h1 className="text-2xl font-bold text-gray-800 mb-4">Unsupported Browser</h1>
       <p className="text-gray-600">
-        CloudHub doesn't support Telegram’s in-app browser.
+        CloudHub doesn’t support Telegram’s in-app browser.
         <br />
         Please open this link in Chrome or Safari.
       </p>
