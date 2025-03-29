@@ -23,6 +23,7 @@ export default function ClientGuard() {
     return () => clearTimeout(timeout)
   }, [])
 
+  return null;
   if (!isBlocked) return null
 
   return (
