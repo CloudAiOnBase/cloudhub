@@ -23,16 +23,16 @@ export default function ClientGuard() {
     return () => clearTimeout(timeout)
   }, [])
 
-  return null; // disabling for tests
   if (!isBlocked) return null
 
   return (
     <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center px-4 text-center">
       <h1 className="text-2xl font-bold text-gray-800 mb-4">Unsupported Browser</h1>
-      <p className="text-gray-600">
-        CloudHub doesn’t support Telegram’s in-app browser.
+      <p className="text-gray-600 text-sm leading-relaxed">
+        CloudHub doesn’t work inside Telegram’s in-app browser.
         <br />
-        Please open this link in Chrome or Safari.
+        Please tap the <strong className="text-black">⋮</strong> (three dots) at the top right
+        and choose <strong>"Open in..."</strong>
       </p>
     </div>
   )
