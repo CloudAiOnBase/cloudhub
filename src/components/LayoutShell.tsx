@@ -1,25 +1,50 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useAccount, useConnect } from 'wagmi';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 
 export default function LayoutShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { isConnected, status } = useAccount();
+  const { connectors, connect } = useConnect();
+
+  useEffect(() => {
+    const tryReconnect = async () => {
+      const metaMask = connectors.find((c) => c.id === 'metaMask');
+
+      // If not connected, but MetaMask is authorized → reconnect
+      if (!isConnected && metaMask?.ready && typeof metaMask.isAuthorized === 'function') {
+        const authorized = await metaMask.isAuthorized();
+
+        if (authorized) {
+          // Force reconnect — this works even if autoConnect already failed
+          connect({ connector: metaMask });
+        }
+      }
+    };
+
+    // Wait a bit after regaining focus (some mobile devices need time)
+    const handleFocus = () => {
+      setTimeout(tryReconnect, 300);
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [isConnected, connectors, connect]);
 
   return (
     <div className="flex min-h-screen">
-      {/* Mobile Sidebar Drawer */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-50 md:hidden">
           <Sidebar mobile onClose={() => setSidebarOpen(false)} />
         </div>
       )}
 
-      {/* Desktop Sidebar */}
-     <div className="hidden md:flex w-64 flex-col bg-white border-r flex-shrink-0">
-  		<Sidebar />
-		 </div>
+      <div className="hidden md:flex w-64 flex-col bg-white border-r flex-shrink-0">
+        <Sidebar />
+      </div>
 
       <div className="flex flex-col flex-1">
         <Topbar onOpenSidebar={() => setSidebarOpen(true)} />
@@ -28,4 +53,3 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
     </div>
   );
 }
-
