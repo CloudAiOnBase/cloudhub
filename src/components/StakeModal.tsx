@@ -26,12 +26,12 @@ export default function StakeModal({ isOpen, onClose, maxAmount, amountUnstaking
   const { writeContractAsync } = useWriteContract();
   const chainId = useChainId();
   type ChainId = keyof typeof CONTRACTS.STAKING_ADDRESSES;
-  const stakingAddress = CONTRACTS.STAKING_ADDRESSES[chainId as ChainId];
+  const stakeVaultAddress = CONTRACTS.STAKE_VAULT_ADDRESSES[chainId as ChainId];
  
 
   const { address } = useAccount();
   const amount = input ? parseUnits(input, 18) : 0n;
-	const { isEnough } = useAllowanceCheck(address, stakingAddress, amount, chainId);
+	const { isEnough } = useAllowanceCheck(address, stakeVaultAddress, amount, chainId);
   const publicClient = usePublicClient();
   const isBelowMinimum = amount < minimumToStake;
 
