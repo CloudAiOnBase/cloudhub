@@ -1,5 +1,6 @@
 import './globals.css';
 import ClientGuard from './ClientGuard';
+import DebugUserAgent from './DebugUserAgent';
 import { WalletProvider } from '@/lib/wallet';
 import LayoutShell from '@/components/LayoutShell';
 import { Toaster } from 'react-hot-toast';
@@ -13,9 +14,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="h-full">
       <body className="h-full bg-gray-50">
-        <ClientGuard /> {/* ← displays blocking message if needed */}
+        <ClientGuard /> {/* Displays blocking message if needed */}
         <WalletProvider>
-          <LayoutShell>{children}</LayoutShell>
+        <LayoutShell>
+          {children}
+          <DebugUserAgent />
+        </LayoutShell>
         </WalletProvider>
         <Toaster
           position="top-right"
