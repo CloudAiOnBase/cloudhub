@@ -1,63 +1,49 @@
-'use client'
-
 import { useEffect, useState } from 'react'
 import { useAccount, useConnect } from 'wagmi'
-import Sidebar from './Sidebar'
-import Topbar from './Topbar'
 
-export default function LayoutShell({ children }: { children: React.ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-
-  const { isConnected, address } = useAccount()
+function ManualReconnectPrompt() {
+  const { isConnected } = useAccount()
   const { connectors, connect } = useConnect()
+  const [shouldShow, setShouldShow] = useState(false)
 
   useEffect(() => {
-    const reconnectMetaMaskIfAuthorized = async () => {
-      const metaMask = connectors.find((c) => c.id === 'metaMask')
-
-      if (!isConnected && metaMask?.ready) {
+    const checkAccounts = async () => {
+      if (typeof window !== 'undefined' && (window as any).ethereum?.request) {
         try {
-          const accounts: string[] = await (window as any).ethereum?.request?.({
+          const accounts: string[] = await (window as any).ethereum.request({
             method: 'eth_accounts',
           })
 
-          console.log('MetaMask accounts:', accounts)
-
-          if (accounts && accounts.length > 0) {
-            // Reconnect silently
-            connect({ connector: metaMask })
+          if (accounts.length > 0 && !isConnected) {
+            setShouldShow(true)
           }
         } catch (err) {
-          alert('Error checking MetaMask accounts')
+          console.error('Error fetching accounts:', err)
         }
       }
     }
 
-    const handleFocus = () => {
-      // Delay is important for mobile (MetaMask context switch)
-      setTimeout(reconnectMetaMaskIfAuthorized, 400)
-    }
+    checkAccounts()
+  }, [isConnected])
 
-    window.addEventListener('focus', handleFocus)
-    return () => window.removeEventListener('focus', handleFocus)
-  }, [isConnected, connectors, connect])
+  const handleReconnect = () => {
+    const metamask = connectors.find((c) => c.id === 'metaMask')
+    if (metamask?.ready) {
+      connect({ connector: metamask })
+    }
+  }
+
+  if (!shouldShow) return null
 
   return (
-    <div className="flex min-h-screen">
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 md:hidden">
-          <Sidebar mobile onClose={() => setSidebarOpen(false)} />
-        </div>
-      )}
-
-      <div className="hidden md:flex w-64 flex-col bg-white border-r flex-shrink-0">
-        <Sidebar />
-      </div>
-
-      <div className="flex flex-col flex-1">
-        <Topbar onOpenSidebar={() => setSidebarOpen(true)} />
-        <main className="flex-1 overflow-y-auto p-6 bg-gray-50">{children}</main>
-      </div>
+    <div className="bg-yellow-100 text-yellow-800 p-3 text-center text-sm">
+      <p className="mb-2">You’re approved in MetaMask, but not connected here.</p>
+      <button
+        onClick={handleReconnect}
+        className="bg-yellow-600 text-white px-4 py-2 rounded"
+      >
+        Reconnect Wallet
+      </button>
     </div>
   )
 }
