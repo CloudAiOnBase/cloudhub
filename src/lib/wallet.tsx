@@ -8,7 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const queryClient = new QueryClient();
 
-// ✅ chains defined inline to match types
+// chains defined inline to match types
 const config = getDefaultConfig({
   appName: 'CloudHub',
   projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!,

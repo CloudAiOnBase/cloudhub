@@ -7,26 +7,33 @@ import Topbar from './Topbar';
 
 export default function LayoutShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { isConnected, status } = useAccount();
+  const { isConnected } = useAccount();
   const { connectors, connect } = useConnect();
 
   useEffect(() => {
     const tryReconnect = async () => {
       const metaMask = connectors.find((c) => c.id === 'metaMask');
-
-      // If not connected, but MetaMask is authorized → reconnect
-      if (!isConnected && metaMask?.ready && typeof metaMask.isAuthorized === 'function') {
-        const authorized = await metaMask.isAuthorized();
-
-        if (authorized) {
-          // Force reconnect — this works even if autoConnect already failed
-          connect({ connector: metaMask });
+      if (!isConnected && metaMask && metaMask.ready) {
+        // Directly query the injected provider (MetaMask)
+        try {
+          if (typeof window !== 'undefined' && window.ethereum && window.ethereum.request) {
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            console.log('Retrieved accounts:', accounts);
+            if (accounts && accounts.length > 0) {
+              // If accounts exist, trigger the connection
+              connect({ connector: metaMask });
+            } else {
+              console.log('No authorized accounts found.');
+            }
+          }
+        } catch (error) {
+          console.error('Error during auto-reconnect:', error);
         }
       }
     };
 
-    // Wait a bit after regaining focus (some mobile devices need time)
     const handleFocus = () => {
+      // Delay a bit to allow MetaMask to settle on mobile
       setTimeout(tryReconnect, 300);
     };
 
@@ -41,11 +48,9 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
           <Sidebar mobile onClose={() => setSidebarOpen(false)} />
         </div>
       )}
-
       <div className="hidden md:flex w-64 flex-col bg-white border-r flex-shrink-0">
         <Sidebar />
       </div>
-
       <div className="flex flex-col flex-1">
         <Topbar onOpenSidebar={() => setSidebarOpen(true)} />
         <main className="flex-1 overflow-y-auto p-6 bg-gray-50">{children}</main>
