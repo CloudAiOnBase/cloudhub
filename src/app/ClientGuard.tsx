@@ -3,22 +3,27 @@
 import { useEffect, useState } from 'react'
 
 export default function ClientGuard() {
-  const [isTelegram, setIsTelegram] = useState(false)
+  const [isBlocked, setIsBlocked] = useState(false)
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    // Delay check to ensure window is fully available
+    const checkTelegram = () => {
       const w = window as any
-      const isInTelegram =
-        typeof w.TelegramWebviewProxy !== 'undefined' ||
-        typeof w.Telegram?.WebApp !== 'undefined'
+      const isTelegramAndroid = !!w.TelegramWebview
+      const isTelegramIOS = !!w.TelegramWebviewProxy || !!w.TelegramWebviewProxyProto
 
-      if (isInTelegram) {
-        setIsTelegram(true)
+      if (isTelegramAndroid || isTelegramIOS) {
+        setIsBlocked(true)
       }
     }
+
+    // Delay by 100ms to give Telegram time to inject globals
+    const timeout = setTimeout(checkTelegram, 100)
+
+    return () => clearTimeout(timeout)
   }, [])
 
-  if (!isTelegram) return null
+  if (!isBlocked) return null
 
   return (
     <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center px-4 text-center">
