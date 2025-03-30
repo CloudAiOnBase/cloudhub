@@ -106,7 +106,7 @@ export default function UnstakeModal({ isOpen, onClose, maxAmount, amountUnstaki
           </button>
           {amountUnstaking > 0n && (
             <p className="text-sm text-red-600 font-medium flex items-center gap-1">
-              ⚠️ Unstaking will cancel any ongoing unstaking process.
+              ⚠️ Unstaking will reset your cooldown. A new {cooldownDays}-day countdown will begin.
             </p>
           )}
           <p className="text-sm text-gray-500 mt-2">

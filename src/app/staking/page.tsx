@@ -136,12 +136,15 @@ export default function StakingPage() {
 		const num = Number(formatUnits(val, 18));
 		if (num % 1 === 0) return num.toLocaleString(); // no decimals
 
-		const fixed = num.toFixed(2);
-		return Number(fixed).toLocaleString(undefined, {
-		  minimumFractionDigits: 2,
-		  maximumFractionDigits: 2,
+		// Always round down to 2 decimals
+		const floored = Math.floor(num * 100) / 100;
+
+		return floored.toLocaleString(undefined, {
+			minimumFractionDigits: 2,
+			maximumFractionDigits: 2,
 		});
 	};
+
 
 	useEffect(() => {
 		const updateTime = () => {

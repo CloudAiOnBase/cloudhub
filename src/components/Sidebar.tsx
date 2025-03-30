@@ -3,7 +3,7 @@ import { Home, Wallet, Clock, Layers, Gavel, FileText } from 'lucide-react';
 import Link from 'next/link';
 
 const navItems = [
-  { name: 'Dashboard', href: '/', icon: <Home size={18} />, enabled: false },
+  { name: 'Dashboard', href: '/', icon: <Home size={18} />, enabled: true },
   { name: 'Wallet', href: '/wallet', icon: <Wallet size={18} />, enabled: false },
   { name: 'History', href: '/history', icon: <Clock size={18} />, enabled: false },
   { name: 'Staking', href: '/staking', icon: <Layers size={18} />, enabled: true },

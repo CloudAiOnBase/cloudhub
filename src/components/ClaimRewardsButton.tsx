@@ -46,7 +46,7 @@ export default function ClaimRewardsButton({ availableRewards, refetchUserBalanc
       toast.success(
         <>
           Transaction confirmed! <br />
-          Rewards claimed automatically.
+          Rewards claimed.
         </>,
         { id: toastId }
       );
