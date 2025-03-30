@@ -17,8 +17,11 @@ const { connectors } = getDefaultWallets({
 const config = createConfig({
   autoConnect: true,
   connectors,
-  publicClient: http(),
   chains: [base, baseSepolia],
+  transports: {
+    [base.id]: http(`https://base-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_KEY}`),
+    [baseSepolia.id]: http(`https://base-sepolia.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_KEY}`),
+  },
   logger: {
     warn: null,
     error: null,
