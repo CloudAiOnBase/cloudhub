@@ -30,7 +30,10 @@ export default function DashboardPage() {
     const data = await res.json();
 
     const pair = data.pairs?.[0];
-    if (!pair) return null;
+    if (!pair || !pair.priceUsd) {
+      console.warn('No active data for token pair — might be due to no recent trades');
+      return null;
+    }
 
     return {
       priceUsd: parseFloat(pair.priceUsd),
@@ -38,13 +41,56 @@ export default function DashboardPage() {
     };
   };
 
+  // APR (scaled by 100)
+  const {
+    data: aprE2,
+    refetch: refetchApr,
+  } = useReadContract({
+    abi: stakingAbi,
+    address: stakingAddress as `0x${string}`,
+    functionName: 'getAprE2',
+    query: {
+      enabled: !!userAddress,
+    },
+  });
+
+  // Total Staked
+  const {
+    data: totalStaked,
+    refetch: refetchTotalStaked,
+  } = useReadContract({
+    abi: stakingAbi,
+    address: stakingAddress as `0x${string}`,
+    functionName: 'totalStaked',
+    query: {
+      enabled: !!userAddress,
+    },
+  });
+
+  // Circulating Supply
+  const {
+    data: circSupply,
+    refetch: refetchCircSupply,
+  } = useReadContract({
+    abi: utilsAbi,
+    address: utilsAddress as `0x${string}`,
+    functionName: 'getCirculatingSupply',
+    query: {
+      enabled: !!userAddress,
+    },
+  });
+
   useEffect(() => {
     const fetchAll = () => {
       fetchCloudPrice().then(data => {
         setCloudPriceData(data);
         setLastUpdated(new Date());
       });
-      setRefetchTrigger(t => t + 1); // Triggers contract refetch
+      
+    // Refetch on-chain data
+    refetchApr();
+    refetchTotalStaked();
+    refetchCircSupply();
     };
 
     fetchAll(); // Initial fetch
@@ -62,46 +108,6 @@ export default function DashboardPage() {
 
     return () => clearInterval(interval);
   }, []);
-
-
-  // APR (scaled by 100)
-  const {
-    data: aprE2,
-  } = useReadContract({
-    abi: stakingAbi,
-    address: stakingAddress as `0x${string}`,
-    functionName: 'getAprE2',
-    query: {
-      enabled: !!userAddress,
-      queryKey: ['getAprE2', refetchTrigger],
-    },
-  });
-
-  // Total Staked
-  const {
-    data: totalStaked,
-  } = useReadContract({
-    abi: stakingAbi,
-    address: stakingAddress as `0x${string}`,
-    functionName: 'totalStaked',
-    query: {
-      enabled: !!userAddress,
-      queryKey: ['totalStaked', refetchTrigger],
-    },
-  });
-
-  // Circulating Supply
-  const {
-    data: circSupply
-  } = useReadContract({
-    abi: utilsAbi,
-    address: utilsAddress as `0x${string}`,
-    functionName: 'getCirculatingSupply',
-    query: {
-      enabled: !!userAddress,
-      queryKey: ['getCirculatingSupply', refetchTrigger],
-    },
-  });
 
   const getRelativeTime = (date: Date | null) => {
     if (!date) return 'Loading...';
@@ -132,45 +138,64 @@ export default function DashboardPage() {
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
       <div className="bg-white shadow rounded-lg p-4">
         <h2 className="text-sm font-medium text-gray-500">Token Price</h2>
-        <p className="text-2xl font-bold text-gray-900 mt-2">${cloudPriceData?.priceUsd}</p>
-      </div>
-
-      <div className="bg-white shadow rounded-lg p-4">
-        <h2 className="text-sm font-medium text-gray-500">24h Change</h2>
-        <p className={`text-2xl font-bold mt-2 ${cloudPriceData?.priceChange24h >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-          {cloudPriceData?.priceChange24h >= 0 ? '+' : ''}{cloudPriceData?.priceChange24h.toFixed(2)}%
+        <p className="text-2xl font-bold text-gray-900 mt-2">
+          {cloudPriceData?.priceUsd
+            ? `$${cloudPriceData.priceUsd.toFixed(6)}`
+            : 'No data'}
+          {!cloudPriceData && (
+            <p className="text-xs text-gray-400 italic mt-1">
+              Waiting for trades to display price data...
+            </p>
+          )}
         </p>
       </div>
 
       <div className="bg-white shadow rounded-lg p-4">
+        <h2 className="text-sm font-medium text-gray-500">24h Change</h2>
+        <p className={`text-2xl font-bold mt-2 ${
+          cloudPriceData?.priceChange24h === undefined
+            ? ''
+            : cloudPriceData.priceChange24h >= 0
+              ? 'text-green-600'
+              : 'text-red-600'
+        }`}>
+          {cloudPriceData?.priceChange24h !== undefined
+            ? `${cloudPriceData.priceChange24h >= 0 ? '+' : ''}${cloudPriceData.priceChange24h.toFixed(2)}%`
+            : 'No data'}
+        </p>
+      </div>
+
+
+      <div className="bg-white shadow rounded-lg p-4">
         <h2 className="text-sm font-medium text-gray-500">Market Cap</h2>
         <p className="text-2xl font-bold text-gray-900 mt-2">
-          {cloudPriceData?.priceUsd !== undefined && circSupply !== undefined
-          ? `$${(cloudPriceData.priceUsd * Number(formatUnits(circSupply, 18))).toLocaleString(undefined, {
-              maximumFractionDigits: 0,
-            })}`
-          : 'Loading...'}
-
+          {cloudPriceData?.priceUsd && circSupply
+            ? `$${(cloudPriceData.priceUsd * Number(formatUnits(circSupply as bigint, 18))).toLocaleString(undefined, {
+                maximumFractionDigits: 0,
+              })}`
+            : 'No data'}
         </p>
       </div>
 
       <div className="bg-white shadow rounded-lg p-4">
         <h2 className="text-sm font-medium text-gray-500">FDV</h2>
         <p className="text-2xl font-bold text-gray-900 mt-2">
-          ${cloudPriceData?.priceUsd && (
-            `${(cloudPriceData.priceUsd * 1_000_000_000).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-          )}
+          {cloudPriceData?.priceUsd
+            ? `$${(cloudPriceData.priceUsd * 1_000_000_000).toLocaleString(undefined, {
+                maximumFractionDigits: 0,
+              })}`
+            : 'No data'}
         </p>
       </div>
 
       <div className="bg-white shadow rounded-lg p-4">
         <h2 className="text-sm font-medium text-gray-500">Total Staked</h2>
-        <p className="text-2xl font-bold text-gray-900 mt-2">{format(totalStaked, 0)} CLOUD</p>
+        <p className="text-2xl font-bold text-gray-900 mt-2">{format(totalStaked as bigint, 0)} CLOUD</p>
       </div>
 
       <div className="bg-white shadow rounded-lg p-4">
         <h2 className="text-sm font-medium text-gray-500">Circulating Supply</h2>
-        <p className="text-2xl font-bold text-gray-900 mt-2">{format(circSupply, 0)} CLOUD</p>
+        <p className="text-2xl font-bold text-gray-900 mt-2">{format(circSupply as bigint, 0)} CLOUD</p>
       </div>
 
       <div className="bg-white shadow rounded-lg p-4">

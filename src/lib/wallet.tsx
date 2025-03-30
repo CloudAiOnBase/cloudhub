@@ -1,42 +1,36 @@
 'use client';
 
-import { WagmiConfig, createConfig, http } from 'wagmi';
+import { WagmiProvider, createConfig, http } from 'wagmi';
 import { base, baseSepolia } from 'wagmi/chains';
-import { RainbowKitProvider, getDefaultWallets } from '@rainbow-me/rainbowkit';
-import '@rainbow-me/rainbowkit/styles.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { RainbowKitProvider, getDefaultConfig } from '@rainbow-me/rainbowkit';
+import '@rainbow-me/rainbowkit/styles.css';
 
-const queryClient = new QueryClient();
+// Define supported chains
+const chains = [base, baseSepolia] as const;
 
-const { connectors } = getDefaultWallets({
+// Create Wagmi config using RainbowKit helper (for Wagmi v2)
+const config = getDefaultConfig({
   appName: 'CloudHub',
   projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!,
-  chains: [base, baseSepolia],
-});
-
-const config = createConfig({
-  autoConnect: true,
-  connectors,
-  chains: [base, baseSepolia],
+  chains,
   transports: {
     [base.id]: http(`https://base-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_KEY}`),
     [baseSepolia.id]: http(`https://base-sepolia.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_KEY}`),
   },
-  logger: {
-    warn: null,
-    error: null,
-    info: null,
-  },
+  ssr: true,
 });
+
+const queryClient = new QueryClient();
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <WagmiConfig config={config}>
+      <WagmiProvider config={config}>
         <RainbowKitProvider>
           {children}
         </RainbowKitProvider>
-      </WagmiConfig>
+      </WagmiProvider>
     </QueryClientProvider>
   );
 }
