@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useAccount, useChainId, useReadContract } from 'wagmi';
 import { CONTRACTS } from '@/constants/contracts';
 import { formatUnits } from 'viem';
-import { LineChart, Line, ResponsiveContainer, Tooltip } from 'recharts';
+//import { LineChart, Line, ResponsiveContainer, Tooltip } from 'recharts';
 import tokenAbi from '@/abi/CloudToken.json'; // ERC20 ABI
 import utilsAbi from '@/abi/CloudUtils.json';
 import stakingAbi from '@/abi/CloudStaking.json';
@@ -47,7 +47,6 @@ export default function DashboardPage() {
       return null;
     }
   };
-
 
 
   // APR (scaled by 100)
