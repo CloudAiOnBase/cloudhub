@@ -26,20 +26,29 @@ export default function DashboardPage() {
 
   // Token price
   const fetchCloudPrice = async () => {
-    const res = await fetch("https://api.dexscreener.com/latest/dex/search?q="+tokenAddress);
-    const data = await res.json();
-
-    const pair = data.pairs?.[0];
-    if (!pair || !pair.priceUsd) {
-      console.warn('No active data for token pair — might be due to no recent trades');
+    try {
+      const res = await fetch("https://api.dexscreener.com/latest/dex/search?q=" + tokenAddress);
+      if (!res.ok) {
+        console.warn("DEXScreener fetch failed:", res.status);
+        return null;
+      }
+      const data = await res.json();
+      const pair = data.pairs?.[0];
+      if (!pair || !pair.priceUsd) {
+        console.warn("No price data available");
+        return null;
+      }
+      return {
+        priceUsd: parseFloat(pair.priceUsd),
+        priceChange24h: parseFloat(pair.priceChange.h24),
+      };
+    } catch (err) {
+      console.error("Error fetching price:", err);
       return null;
     }
-
-    return {
-      priceUsd: parseFloat(pair.priceUsd),
-      priceChange24h: parseFloat(pair.priceChange.h24),
-    };
   };
+
+
 
   // APR (scaled by 100)
   const {
@@ -142,12 +151,12 @@ export default function DashboardPage() {
           {cloudPriceData?.priceUsd
             ? `$${cloudPriceData.priceUsd.toFixed(6)}`
             : 'No data'}
-          {!cloudPriceData && (
-            <p className="text-xs text-gray-400 italic mt-1">
-              Waiting for trades to display price data...
-            </p>
-          )}
         </p>
+        {!cloudPriceData && (
+          <p className="text-xs text-gray-400 italic mt-1">
+            Waiting for trades to display price data...
+          </p>
+        )}
       </div>
 
       <div className="bg-white shadow rounded-lg p-4">
