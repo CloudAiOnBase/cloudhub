@@ -2,36 +2,56 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useAccount, useChainId, useReadContract, useReadContracts, usePublicClient } from 'wagmi';
-import { CONTRACTS } from '@/constants/contracts';
-import governorAbi from '@/abi/CloudGovernor.json';
+import type { Abi } from 'viem'
+import { CONTRACTS } from '@/constants/contracts'
+import rawGovernorAbi from '@/abi/CloudGovernor.json';
 import ProposalForm from '@/components/ProposalForm';
 import { formatUnits,parseUnits } from 'viem';
-import { ProposalSubmittedDate } from '@/components/ProposalSubmittedDate'
 import Link from 'next/link'
 
 
 export default function GovernancePage() {
-  const [lastIndex, setLastIndex] = useState<number | null>(null)
-  const [showModal, setShowModal] = useState(false);
+  const governorAbi = rawGovernorAbi as Abi;
+  const [showModal, setShowModal]   = useState(false);
+  const [lastIndex, setLastIndex]   = useState<number | null>(null);
+  const [startIndex, setStartIndex] = useState<number | null>(null);
+  const [propsPerPage, setPropsPerPage] = useState<number | null>(null);
 
   const chainId         = useChainId();
   type ChainId          = keyof typeof CONTRACTS.STAKING_ADDRESSES;
   const governorAddress = CONTRACTS.GOVERNOR_ADDRESSES[chainId as ChainId];
-  const propsPerPage    = 10;
-
-  const publicClient = usePublicClient()
+  const publicClient    = usePublicClient()
   const [latestBlock, setLatestBlock] = useState<{
     number: bigint
     timestamp: bigint
   } | null>(null)
 
-  const startIndex = lastIndex !== null
-  ? Math.max(0, lastIndex - propsPerPage)
-  : null
 
-  // current block
+  type ProposalMetadata = [
+    string,              // proposer
+    string,              // title
+    string,              // description
+    string[],            // targets
+    bigint[],            // values
+    `0x${string}`[],     // calldatas
+    bigint,              // timestamp
+    bigint,              // block
+    bigint,              // quorum
+    bigint,              // totalVP
+    boolean              // depositClaimed
+  ];
+
+
+  type VotingTimeInfo = {
+    label: string;
+    content: string;
+  };
+
+
+   // current block
   useEffect(() => {
     async function fetchBlock() {
+      if (!publicClient) return;
       const block = await publicClient.getBlock()
       setLatestBlock({
         number: block.number,
@@ -41,45 +61,80 @@ export default function GovernancePage() {
     fetchBlock()
   }, [publicClient])
 
+
+  // Proposals count
+  const {
+    data: lastIndexRaw,
+    refetch: refetchLastIndexRaw,
+  } = useReadContract({
+    abi: governorAbi,
+    address: governorAddress as `0x${string}`,
+    functionName: 'getProposalCount',
+    query: {},
+  });
+
+  // On first load or update
   useEffect(() => {
-    async function fetchLastIndex() {
-      try {
-        const res = await fetch('/api/proposals/latest?chain=baseSepolia')
-        const data = await res.json()
-        setLastIndex(data.lastIndex)
-      } catch (err) {
-        console.error('Failed to fetch lastIndex:', err)
-      }
+    if (lastIndexRaw !== undefined) {
+      const computedLastIndex     = Number(lastIndexRaw);
+      const computedPropsPerPage  = Math.min(computedLastIndex, 10);
+
+      setPropsPerPage(Math.min(computedLastIndex, 10));
+      //console.log(propsPerPage)
+      setLastIndex(computedLastIndex);
+      setStartIndex(Math.max(0, computedLastIndex - computedPropsPerPage- 1));
     }
+  }, [lastIndexRaw]);
 
-    fetchLastIndex()
-  }, [])
+  // Manual refresh
+  const refreshProposalList = async () => {
+    const { data } = await refetchLastIndexRaw();
+    //console.log(propsPerPage)
+    const computedLastIndex     = Number(data);
+    const computedPropsPerPage  = Math.min(computedLastIndex, 10);
 
+    setPropsPerPage(Math.min(computedLastIndex, 10));
+    setLastIndex(computedLastIndex);
+    setStartIndex(Math.max(0, computedLastIndex - computedPropsPerPage - 1));
+    //console.log(computedStartIndex)
+  };
 
   // Gov params
   const {
-    data: govParams,
+    data: govParams
   } = useReadContract({
     abi: governorAbi,
     address: governorAddress as `0x${string}`,
     functionName: 'getGovernanceParams',
     query: {},
-  });
+  }) as {
+    data: [bigint, bigint, bigint, bigint, bigint] | undefined;
+  };
 
   // Gov proposals
   const {
     data: govProposals,
     isLoading: loadingProposals,
     error: proposalsError,
+    refetch: refetchProposals,
   } = useReadContract({
     abi: governorAbi,
     address: governorAddress as `0x${string}`,
     functionName: 'getProposalsPaginated',
-    args: [startIndex, propsPerPage],
+    args: startIndex !== null ? [startIndex, propsPerPage] : undefined,
     query: {
-      enabled: lastIndex !== undefined && propsPerPage > 0,
+      enabled: startIndex !== null,
     },
-  });
+  }) as {
+    data: bigint[] | undefined
+    isLoading: boolean
+    error: unknown
+    refetch: () => void
+  };
+
+if (typeof window !== 'undefined') {
+  (window as any).refreshProposalList = refreshProposalList;
+}
 
   // Gov proposal 
   const proposalCalls = govProposals?.flatMap((proposalId) => [
@@ -114,13 +169,12 @@ export default function GovernancePage() {
     },
   })
 
-  const proposalData = govProposals?.map((proposalId, i) => ({
+  const proposalData = govProposals?.map((proposalId: bigint, i: number) => ({
     id: proposalId,
-    metadata: proposalResults?.[i * 3]?.result,
-    state: proposalResults?.[i * 3 + 1]?.result,
-    snapshot: proposalResults?.[i * 3 + 2]?.result,
-  }))
-
+    metadata: proposalResults?.[i * 3]?.result as ProposalMetadata,
+    state: proposalResults?.[i * 3 + 1]?.result as number,
+    snapshot: proposalResults?.[i * 3 + 2]?.result as bigint,
+  }));
   console.log(proposalData);
 
   function mapState(state: number): { label: string; color: string; bg: string } {
@@ -203,15 +257,15 @@ export default function GovernancePage() {
   }
 
 
-console.log(govProposals);
 
+  //console.log(govProposals);
 
   const reversedProposals = useMemo(() => proposalData?.slice().reverse(), [proposalData])
 
   return (
     <>
       {/* Modal */}
-      {showModal && <ProposalForm onClose={() => setShowModal(false)} />}
+      {showModal && <ProposalForm onClose={() => setShowModal(false)} refreshProposalList={refreshProposalList} />}
 
       {/* Main Page Content */}
       <div className="space-y-6">
@@ -226,15 +280,22 @@ console.log(govProposals);
         </div>
 
         {loadingProposals && <p className="text-gray-600">Loading proposals...</p>}
-        {proposalsError && <p className="text-gray-600">Error loading proposals</p>}
+        {proposalsError ? <p className="text-gray-600">No proposals</p> : null}
 
-        {govProposals && (
+
+        {(govProposals && latestBlock && govParams) as unknown as React.ReactNode && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {reversedProposals.map((p, i)  => {
+            {reversedProposals?.map((p, i) => {
 
-              const status = mapState(p.state)
-              const timeInfo = getVotingTimeLeft(p.state, p.snapshot, latestBlock.number, govParams?.[0])
 
+             const status = mapState(p.state as number);
+
+            const timeInfo = getVotingTimeLeft(
+              p.state as number,
+              p.snapshot as bigint,
+              latestBlock?.number ?? 0n,
+              govParams?.[0] ?? 0n
+            );
 
               return (
                 <div key={p.id.toString()} className="bg-white shadow rounded-lg p-4 space-y-4">
@@ -243,17 +304,22 @@ console.log(govProposals);
                       {status.label}
                     </span>
                     <span className="text-xs text-gray-400 font-medium">
-                      ID: {Number(startIndex) + (proposalData.length - 1 - i)}
+                      ID: {Number(startIndex) + ((proposalData?.length ?? 0) - i)}
                     </span>
                   </div>
 
-                  <Link href={`/governance/${Number(startIndex) + (proposalData.length - 1 - i)}`} className="block mb-3">
+                  <Link href={`/governance/${Number(startIndex) + ((proposalData?.length ?? 0)  - i)}`} className="block mb-3">
                     <h2 className="text-lg font-semibold text-blue-700 hover:underline">
-                      {p.metadata?.[0] || 'Untitled'}
+                      {p.metadata?.[1] || 'Untitled'}
                     </h2>
                   </Link>
 
-                  <ProposalSubmittedDate blockNumber={p.snapshot} />   
+                  <p className="text-xs text-gray-500">
+                    Submitted at —{' '}
+                    {p.metadata?.[3]
+                      ? new Date(Number(p.metadata[3]) * 1000).toLocaleString()
+                      : '...'}
+                  </p>
                   <div className="flex items-center justify-between mt-4">
                     <div className="relative w-16 h-16">
                       <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
@@ -306,7 +372,7 @@ console.log(govProposals);
           </div>
           <div>
             <span className="font-bold text-gray-900">Deposit</span><br />
-            {govParams && format(BigInt(govParams?.[1]) * 10n ** 18n)+' CLOUD'} 
+            {typeof govParams?.[1] === 'bigint' ? format(govParams[1] * 10n ** 18n) + ' CLOUD' : '...'}
           </div>
           <div>
             <span className="font-bold text-gray-900">Quorum</span><br />

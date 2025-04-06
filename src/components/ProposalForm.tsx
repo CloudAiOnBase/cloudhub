@@ -9,7 +9,8 @@ import { CONTRACTS } from '@/constants/contracts';
 import { useAllowanceCheck } from '@/lib/hooks/useAllowanceCheck';
 import { toast } from 'react-hot-toast';
 
-export default function ProposalForm({ onClose }: { onClose: () => void }) {
+export default function ProposalForm({ onClose, refreshProposalList }: { onClose: () => void, refreshProposalList: () => Promise<void> }) {
+
   const [type, setType]               = useState<'text' | 'execute'>('text');
   const [title, setTitle]             = useState('');
   const [description, setDescription] = useState('');
@@ -19,6 +20,7 @@ export default function ProposalForm({ onClose }: { onClose: () => void }) {
   const { address }             = useAccount();
   const publicClient            = usePublicClient();
   const chainId                 = useChainId();
+  type ChainId = keyof typeof CONTRACTS.STAKING_ADDRESSES;
   const token                   = CONTRACTS.TOKEN_ADDRESSES[chainId as ChainId];
   const governorAddress         = CONTRACTS.GOVERNOR_ADDRESSES[chainId as ChainId];
   const { writeContractAsync }  = useWriteContract();
@@ -34,7 +36,7 @@ export default function ProposalForm({ onClose }: { onClose: () => void }) {
     address: governorAddress as `0x${string}`,
     functionName: 'getGovernanceParams',
     query: {},
-  });
+  }) as { data: [bigint, bigint, bigint, bigint, bigint] | undefined };
 
 
 
@@ -57,6 +59,43 @@ export default function ProposalForm({ onClose }: { onClose: () => void }) {
 
   let toastId2: string;
 
+
+const dummyAbi = [
+  {
+    type: 'function',
+    name: 'doNothing',
+    stateMutability: 'nonpayable',
+    inputs: [],
+    outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'logTest',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'message', type: 'string' },
+    ],
+    outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'updateValue',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'value', type: 'uint256' },
+    ],
+    outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'pause',
+    stateMutability: 'nonpayable',
+    inputs: [],
+    outputs: [],
+  },
+];
+
+
   const handleSubmit = async () => {
     if (!title || !description) return alert('Title and description are required');
     if (type === 'execute' && calls.some(c => !c.target || !c.fnName)) return alert('Each call must have target and function');
@@ -70,7 +109,7 @@ export default function ProposalForm({ onClose }: { onClose: () => void }) {
         for (const call of calls) {
           const parsedArgs = call.args ? JSON.parse(call.args) : [];
           const calldata = encodeFunctionData({
-            abi: [], // Insert your target contract ABI here dynamically or statically
+            abi: dummyAbi, // Insert your target contract ABI here dynamically or statically
             functionName: call.fnName,
             args: parsedArgs,
           });
@@ -118,17 +157,22 @@ export default function ProposalForm({ onClose }: { onClose: () => void }) {
 
       // Wait for the transaction to be mined
       if (!publicClient) return;
-      await publicClient.waitForTransactionReceipt({ hash: txHash2 });
+      const receipt =  await publicClient.waitForTransactionReceipt({ hash: txHash2 });
 
-      toast.success(
-        <>
-          Transaction confirmed! <br />
-          Proposal submitted.
-        </>,
-        { id: toastId2 }
-      );
-      
-      onClose();
+      if (receipt.status === 'success') {
+        toast.success(
+          <>
+            Transaction confirmed! <br />
+            Proposal submitted.
+          </>,
+          { id: toastId2 }
+        );
+        onClose();
+        await refreshProposalList();
+      } else {
+        toast.error('Submission failed', { id: toastId2 });
+      }
+
     } catch (err) {
       console.error('Submission failed', err);
       toast.error('Submission failed. Please try again.');
@@ -153,7 +197,7 @@ export default function ProposalForm({ onClose }: { onClose: () => void }) {
             onChange={(e) => setType(e.target.value as 'text' | 'execute')}
           >
             <option value="text">Text Proposal</option>
-            <option value="execute">Execute Contract</option>
+              <option value="execute" disabled>Execute Contract (coming soon)</option>
           </select>
         </div>
 
