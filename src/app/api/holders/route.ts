@@ -6,7 +6,8 @@ export async function GET() {
   const now = Date.now();
   const threeHours = 3 * 60 * 60 * 1000;
 
-  if (!holderCount || now - lastUpdated > threeHours) {
+  // Explicitly check if holderCount is null
+  if (holderCount === null || now - lastUpdated > threeHours) {
     console.log('🔄 Fetching holder count...');
     const count = await getHolderCount();
     if (count !== null) {
@@ -21,7 +22,7 @@ export async function GET() {
 
   const lastUpdatedISO = lastUpdated ? new Date(lastUpdated).toISOString() : null;
 
-  console.log('✅ Responding with:', {
+  console.log(' Responding with:', {
     holders: holderCount,
     lastUpdated: lastUpdatedISO,
   });
@@ -31,3 +32,4 @@ export async function GET() {
     lastUpdated: lastUpdatedISO,
   });
 }
+
