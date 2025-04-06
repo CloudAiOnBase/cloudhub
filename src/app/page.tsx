@@ -240,7 +240,7 @@ export default function DashboardPage() {
         <p className="text-2xl font-bold text-gray-900 mt-2 flex items-baseline space-x-2">
           <span>{format(totalStaked as bigint, 0)}</span>
           <span className="text-base font-mono text-gray-500">CLOUD</span>
-          {circSupply && totalStaked && (
+          {circSupply !== null && totalStaked !== null && (
             <span className="text-xl font-bold text-gray-900 mt-2 flex items-baseline space-x-2">
               ({((Number(totalStaked) / Number(circSupply)) * 100).toFixed(2)}%)
             </span>
