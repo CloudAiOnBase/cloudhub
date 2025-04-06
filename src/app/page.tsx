@@ -238,7 +238,7 @@ export default function DashboardPage() {
         <h2 className="text-sm font-medium text-gray-500 mb-1">Stakers / Holders</h2>
         <p className="text-2xl font-bold text-gray-900 mt-2">
           {totalStakers ? totalStakers.toLocaleString() : '-'} /{' '}
-          {typeof holders === 'number' ? holders.toLocaleString() : '-'}
+          {typeof holders === 'number' && holders > 0 ? holders.toLocaleString() : '-'}
         </p>
       </div>
 
