@@ -1,35 +1,28 @@
+import axios from 'axios';
 import { NextResponse } from 'next/server';
-import { getHolderCount } from '@/utils/getHolderCount';
-import { holderCount, lastUpdated, updateHolderCache } from '@/utils/holderCache';
+
+const tokenAddress = '0x2425598dD959E47a294A737eE4104316864817cf';
 
 export async function GET() {
-  const now = Date.now();
-  const threeHours = 3 * 60 * 60 * 1000;
+  console.log('🔄 Fetching holder count...');
 
-  // Explicitly check if holderCount is null
-  if (holderCount === null || now - lastUpdated > threeHours) {
-    console.log('🔄 Fetching holder count...');
-    const count = await getHolderCount();
-    if (count !== null) {
-      updateHolderCache(count);
-    } else {
-      console.warn('⚠️ Failed to fetch holder count. Using 0 as fallback.');
-      updateHolderCache(0);
-    }
-  } else {
-    console.log('⚡ Using cached holder count...');
+  let holderCount: number | null = null;
+
+  try {
+    const res = await axios.get(`https://base.blockscout.com/api/v2/tokens/${tokenAddress}/counters`);
+    const data = res.data;
+
+    const parsed = parseInt(data.token_holders_count, 10);
+    holderCount = isNaN(parsed) ? null : parsed;
+  } catch (err) {
+    console.error('Error fetching from Blockscout:', err);
   }
 
-  const lastUpdatedISO = lastUpdated ? new Date(lastUpdated).toISOString() : null;
-
-  console.log(' Responding with:', {
+  console.log('✅ Responding with:', {
     holders: holderCount,
-    lastUpdated: lastUpdatedISO,
   });
 
   return NextResponse.json({
     holders: holderCount,
-    lastUpdated: lastUpdatedISO,
   });
 }
-

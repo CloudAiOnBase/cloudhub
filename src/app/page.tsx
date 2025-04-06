@@ -105,27 +105,39 @@ export default function DashboardPage() {
 
 
   // Holders
-  useEffect(() => {
+  const fetchHolders = () => {
     const cached = localStorage.getItem('holders');
     const cachedTime = localStorage.getItem('holdersUpdated');
     const now = Date.now();
-    const expired = !cachedTime || now - Number(cachedTime) > 3 * 60 * 60 * 1000;
+    const expired = !cachedTime || now - Number(cachedTime) > 1 * 60 * 60 * 1000;
     const parsedCached = Number(cached);
 
-    // Check if cached value is a valid number; if it's NaN or expired, fetch fresh data.
     if (isNaN(parsedCached) || expired) {
+      console.log('refetch holders count');
       fetch('/api/holders')
         .then(res => res.json())
         .then(data => {
-          localStorage.setItem('holders', data.holders);
-          localStorage.setItem('holdersUpdated', now.toString());
-          setHolders(data.holders);
+          if (typeof data.holders === 'number') {
+            localStorage.setItem('holders', data.holders.toString()); 
+            localStorage.setItem('holdersUpdated', now.toString());
+            setHolders(data.holders);
+          } else {
+            console.warn('Invalid holders value from API:', data);
+          }
+        })
+        .catch(err => {
+          console.error('Error fetching holders:', err);
         });
     } else {
       setHolders(parsedCached);
     }
+  };
+
+  useEffect(() => {
+    fetchHolders();
   }, []);
 
+  //
   useEffect(() => {
     const fetchAll = () => {
       fetchCloudPrice().then(data => {
@@ -138,6 +150,7 @@ export default function DashboardPage() {
     refetchTotalStaked();
     refetchCircSupply();
     refetchTotalStakers();
+    fetchHolders();
     };
 
     fetchAll(); // Initial fetch
