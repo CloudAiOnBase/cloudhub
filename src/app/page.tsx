@@ -103,6 +103,7 @@ export default function DashboardPage() {
     },
   });
 
+
   // Holders
   useEffect(() => {
     const cached = localStorage.getItem('holders');
@@ -123,6 +124,29 @@ export default function DashboardPage() {
       setHolders(Number(cached));
     }
   }, []);
+
+
+  useEffect(() => {
+    const fetchAll = () => {
+      fetchCloudPrice().then(data => {
+        setCloudPriceData(data);
+        setLastUpdated(new Date());
+      });
+      
+    // Refetch on-chain data
+    refetchApr();
+    refetchTotalStaked();
+    refetchCircSupply();
+    refetchTotalStakers();
+    };
+
+    fetchAll(); // Initial fetch
+
+    const interval = setInterval(fetchAll, 60000); // Refresh every 60s
+
+    return () => clearInterval(interval);
+  }, []);
+
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -210,14 +234,11 @@ export default function DashboardPage() {
         </p>
       </div>
 
-
       <div className="bg-white shadow rounded-lg p-4">
         <h2 className="text-sm font-medium text-gray-500 mb-1">Stakers / Holders</h2>
         <p className="text-2xl font-bold text-gray-900 mt-2">
-            {holders !== null && holders !== undefined &&
-             totalStakers !== null && totalStakers !== undefined ? (
-              `${totalStakers.toLocaleString()} / ${holders.toLocaleString()}`
-                     ) : 'Loading...'}
+          {totalStakers ? totalStakers.toLocaleString() : '-'} /{' '}
+          {typeof holders === 'number' ? holders.toLocaleString() : '-'}
         </p>
       </div>
 
