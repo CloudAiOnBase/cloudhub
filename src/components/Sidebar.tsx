@@ -7,7 +7,7 @@ const navItems = [
   { name: 'Wallet', href: '/wallet', icon: <Wallet size={18} />, enabled: false },
   { name: 'History', href: '/history', icon: <Clock size={18} />, enabled: false },
   { name: 'Staking', href: '/staking', icon: <Layers size={18} />, enabled: true },
-  { name: 'Governance', href: '/governance', icon: <Gavel size={18} />, enabled: false },
+  { name: 'Governance', href: '/governance', icon: <Gavel size={18} />, enabled: true },
   { name: 'Contracts', href: '/contracts', icon: <FileText size={18} />, enabled: false },
 ];
 
