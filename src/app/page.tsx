@@ -108,11 +108,12 @@ export default function DashboardPage() {
   useEffect(() => {
     const cached = localStorage.getItem('holders');
     const cachedTime = localStorage.getItem('holdersUpdated');
-
     const now = Date.now();
     const expired = !cachedTime || now - Number(cachedTime) > 3 * 60 * 60 * 1000;
+    const parsedCached = Number(cached);
 
-    if (!cached || expired) {
+    // Check if cached value is a valid number; if it's NaN or expired, fetch fresh data.
+    if (isNaN(parsedCached) || expired) {
       fetch('/api/holders')
         .then(res => res.json())
         .then(data => {
@@ -121,10 +122,9 @@ export default function DashboardPage() {
           setHolders(data.holders);
         });
     } else {
-      setHolders(Number(cached));
+      setHolders(parsedCached);
     }
   }, []);
-
 
   useEffect(() => {
     const fetchAll = () => {
