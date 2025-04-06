@@ -117,26 +117,24 @@ export default function DashboardPage() {
 
 
   useEffect(() => {
-    const fetchAll = () => {
-      fetchCloudPrice().then(data => {
-        setCloudPriceData(data);
-        setLastUpdated(new Date());
-      });
-      
-    // Refetch on-chain data
-    refetchApr();
-    refetchTotalStaked();
-    refetchCircSupply();
-    refetchTotalStakers();
-    };
+    const cached = localStorage.getItem('holders');
+    const cachedTime = localStorage.getItem('holdersUpdated');
 
-    fetchAll(); // Initial fetch
+    const now = Date.now();
+    const expired = !cachedTime || now - Number(cachedTime) > 3 * 60 * 60 * 1000;
 
-    const interval = setInterval(fetchAll, 60000); // Refresh every 60s
-
-    return () => clearInterval(interval);
+    if (!cached || expired) {
+      fetch('/api/holders')
+        .then(res => res.json())
+        .then(data => {
+          localStorage.setItem('holders', data.holders);
+          localStorage.setItem('holdersUpdated', now.toString());
+          setHolders(data.holders);
+        });
+    } else {
+      setHolders(Number(cached));
+    }
   }, []);
-
 
   useEffect(() => {
     const interval = setInterval(() => {
