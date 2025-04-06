@@ -1,7 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { useWriteContract, useChainId, useAccount, usePublicClient, useReadContract } from 'wagmi';
+import {
+  useWriteContract,
+  useChainId,
+  useAccount,
+  usePublicClient,
+  useReadContract,
+} from 'wagmi';
 import { formatUnits, parseUnits, encodeFunctionData } from 'viem';
 import tokenAbi from '@/abi/CloudToken.json';
 import governorAbi from '@/abi/CloudGovernor.json';
@@ -9,101 +15,115 @@ import { CONTRACTS } from '@/constants/contracts';
 import { useAllowanceCheck } from '@/lib/hooks/useAllowanceCheck';
 import { toast } from 'react-hot-toast';
 
-export default function ProposalForm({ onClose, refreshProposalList }: { onClose: () => void, refreshProposalList: () => Promise<void> }) {
-
-  const [type, setType]               = useState<'text' | 'execute'>('text');
-  const [title, setTitle]             = useState('');
+export default function ProposalForm({
+  onClose,
+  refreshProposalList,
+}: {
+  onClose: () => void;
+  refreshProposalList: () => Promise<void>;
+}) {
+  // ------------------------------
+  // Component State
+  // ------------------------------
+  const [type, setType] = useState<'text' | 'execute'>('text');
+  const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [calls, setCalls]             = useState([{ target: '', fnName: '', args: '' }]);
-  const [loading, setLoading]         = useState(false);
+  const [calls, setCalls] = useState([{ target: '', fnName: '', args: '' }]);
+  const [loading, setLoading] = useState(false);
 
-  const { address }             = useAccount();
-  const publicClient            = usePublicClient();
-  const chainId                 = useChainId();
+  // ------------------------------
+  // Blockchain & Contract Setup
+  // ------------------------------
+  const { address } = useAccount();
+  const publicClient = usePublicClient();
+  const chainId = useChainId();
   type ChainId = keyof typeof CONTRACTS.STAKING_ADDRESSES;
-  const token                   = CONTRACTS.TOKEN_ADDRESSES[chainId as ChainId];
-  const governorAddress         = CONTRACTS.GOVERNOR_ADDRESSES[chainId as ChainId];
-  const { writeContractAsync }  = useWriteContract();
-  const deposit                 = parseUnits("10000", 18);
-  const { isEnough }            = useAllowanceCheck(address, governorAddress, deposit, chainId);
+  const token = CONTRACTS.TOKEN_ADDRESSES[chainId as ChainId];
+  const governorAddress = CONTRACTS.GOVERNOR_ADDRESSES[chainId as ChainId];
+  const { writeContractAsync } = useWriteContract();
+  const deposit = parseUnits('10000', 18);
+  const { isEnough } = useAllowanceCheck(address, governorAddress, deposit, chainId);
 
-
-  // Gov params
-  const {
-    data: govParams,
-  } = useReadContract({
+  // ------------------------------
+  // Gov Params
+  // ------------------------------
+  const { data: govParams } = useReadContract({
     abi: governorAbi,
     address: governorAddress as `0x${string}`,
     functionName: 'getGovernanceParams',
     query: {},
   }) as { data: [bigint, bigint, bigint, bigint, bigint] | undefined };
 
-
-
+  // ------------------------------
+  // Helper Functions
+  // ------------------------------
   const format = (val?: bigint, decimals: number = 2) => {
     if (val === undefined) return '0';
 
     const num = Number(formatUnits(val, 18));
-
     if (Number.isInteger(num)) return Math.floor(num).toLocaleString();
 
     const factor = 10 ** decimals;
     const floored = Math.floor(num * factor) / factor;
-
     return floored.toLocaleString(undefined, {
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
     });
   };
 
+  // ------------------------------
+  // Dummy ABI for Execute Calls
+  // ------------------------------
+  const dummyAbi = [
+    {
+      type: 'function',
+      name: 'doNothing',
+      stateMutability: 'nonpayable',
+      inputs: [],
+      outputs: [],
+    },
+    {
+      type: 'function',
+      name: 'logTest',
+      stateMutability: 'nonpayable',
+      inputs: [{ name: 'message', type: 'string' }],
+      outputs: [],
+    },
+    {
+      type: 'function',
+      name: 'updateValue',
+      stateMutability: 'nonpayable',
+      inputs: [{ name: 'value', type: 'uint256' }],
+      outputs: [],
+    },
+    {
+      type: 'function',
+      name: 'pause',
+      stateMutability: 'nonpayable',
+      inputs: [],
+      outputs: [],
+    },
+  ];
 
+  // ------------------------------
+  // Handle Form Submission
+  // ------------------------------
   let toastId2: string;
-
-
-const dummyAbi = [
-  {
-    type: 'function',
-    name: 'doNothing',
-    stateMutability: 'nonpayable',
-    inputs: [],
-    outputs: [],
-  },
-  {
-    type: 'function',
-    name: 'logTest',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'message', type: 'string' },
-    ],
-    outputs: [],
-  },
-  {
-    type: 'function',
-    name: 'updateValue',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'value', type: 'uint256' },
-    ],
-    outputs: [],
-  },
-  {
-    type: 'function',
-    name: 'pause',
-    stateMutability: 'nonpayable',
-    inputs: [],
-    outputs: [],
-  },
-];
-
-
   const handleSubmit = async () => {
-    if (!title || !description) return alert('Title and description are required');
-    if (type === 'execute' && calls.some(c => !c.target || !c.fnName)) return alert('Each call must have target and function');
+    if (!title || !description) {
+      return alert('Title and description are required');
+    }
+    if (type === 'execute' && calls.some((c) => !c.target || !c.fnName)) {
+      return alert('Each call must have target and function');
+    }
 
-    let targets:   string[]         = [];
-    let values:    bigint[]         = [];
-    let calldatas: `0x${string}`[]  = [];
+    let targets: string[] = [];
+    let values: bigint[] = [];
+    let calldatas: `0x${string}`[] = [];
 
+    // ------------------------------
+    // Build Execute Calls Data
+    // ------------------------------
     if (type === 'execute') {
       try {
         for (const call of calls) {
@@ -126,7 +146,9 @@ const dummyAbi = [
     try {
       setLoading(true);
 
-      // Approve
+      // ------------------------------
+      // Approve Deposit (if needed)
+      // ------------------------------
       if (!isEnough) {
         const txHash1 = await writeContractAsync({
           abi: tokenAbi,
@@ -136,28 +158,27 @@ const dummyAbi = [
         });
 
         toast.loading('Processing transaction 1 of 2...');
-
         if (!publicClient) return;
         await publicClient.waitForTransactionReceipt({ hash: txHash1 });
-
-        toast.dismiss(); // no arguments = close all
+        toast.dismiss();
       }
 
-      // Submit proposal
+      // ------------------------------
+      // Submit Proposal
+      // ------------------------------
       const txHash2 = await writeContractAsync({
-        address:      governorAddress,
-        abi:          governorAbi,
+        address: governorAddress,
+        abi: governorAbi,
         functionName: 'proposeWithMetadata',
-        args: type === 'text'
-          ? [[governorAddress], [0], ["0x"], title, description]
-          : [targets, values, calldatas, title, description],
+        args:
+          type === 'text'
+            ? [[governorAddress], [0], ['0x'], title, description]
+            : [targets, values, calldatas, title, description],
       });
 
       toastId2 = toast.loading('Waiting for confirmation...');
-
-      // Wait for the transaction to be mined
       if (!publicClient) return;
-      const receipt =  await publicClient.waitForTransactionReceipt({ hash: txHash2 });
+      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash2 });
 
       if (receipt.status === 'success') {
         toast.success(
@@ -172,7 +193,6 @@ const dummyAbi = [
       } else {
         toast.error('Submission failed', { id: toastId2 });
       }
-
     } catch (err) {
       console.error('Submission failed', err);
       toast.error('Submission failed. Please try again.');
@@ -181,14 +201,15 @@ const dummyAbi = [
     }
   };
 
+  // ------------------------------
+  // Render Form UI
+  // ------------------------------
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center">
-
       <div className="bg-white rounded-lg p-6 w-full max-w-2xl space-y-5 overflow-y-auto max-l-[95vh]">
+        <h2 className="text-xl font-bold text-gray-900">New Proposal</h2>
 
-      <h2 className="text-xl font-bold text-gray-900">New Proposal</h2>
-
-
+        {/* Proposal Type */}
         <div>
           <label className="text-sm font-medium text-gray-700">Proposal Type</label>
           <select
@@ -197,10 +218,13 @@ const dummyAbi = [
             onChange={(e) => setType(e.target.value as 'text' | 'execute')}
           >
             <option value="text">Text Proposal</option>
-              <option value="execute" disabled>Execute Contract (coming soon)</option>
+            <option value="execute" disabled>
+              Execute Contract (coming soon)
+            </option>
           </select>
         </div>
 
+        {/* Title */}
         <div>
           <label className="text-sm font-medium text-gray-700">Title</label>
           <input
@@ -212,6 +236,7 @@ const dummyAbi = [
           />
         </div>
 
+        {/* Description */}
         <div>
           <label className="text-sm font-medium text-gray-700">Description</label>
           <textarea
@@ -226,12 +251,17 @@ const dummyAbi = [
           </p>
         </div>
 
+        {/* Deposit Info */}
         <div>
           <label className="text-sm font-medium text-gray-700">Deposit</label>
           <input
             type="text"
             disabled
-            value={govParams ? format(BigInt(govParams?.[1]) * 10n ** 18n)+' CLOUD' : 'loading ...'}
+            value={
+              govParams
+                ? format(BigInt(govParams?.[1]) * 10n ** 18n) + ' CLOUD'
+                : 'loading ...'
+            }
             className="w-full mt-1 border rounded px-3 py-2 text-sm placeholder-gray-400 border-gray-200 text-gray-500 bg-gray-100 cursor-not-allowed"
           />
           <p className="text-xs text-gray-500 mt-1">
@@ -239,13 +269,18 @@ const dummyAbi = [
           </p>
         </div>
 
-
+        {/* Execute Calls (Conditional) */}
         {type === 'execute' && (
           <>
             {calls.map((call, i) => (
-              <div key={i} className="border border-gray-300 rounded p-4 bg-gray-50 mb-2">
+              <div
+                key={i}
+                className="border border-gray-300 rounded p-4 bg-gray-50 mb-2"
+              >
                 <div className="mb-2">
-                  <label className="text-sm font-medium text-gray-700">Contract Address</label>
+                  <label className="text-sm font-medium text-gray-700">
+                    Contract Address
+                  </label>
                   <input
                     className="w-full mt-1 border bg-white rounded px-3 py-2 text-sm text-gray-900 placeholder-gray-400 border-gray-200 focus:outline-none focus:ring-blue-400 focus:border-blue-400"
                     value={call.target}
@@ -259,7 +294,9 @@ const dummyAbi = [
                 </div>
 
                 <div className="mb-2">
-                  <label className="text-sm font-medium text-gray-700">Function Name</label>
+                  <label className="text-sm font-medium text-gray-700">
+                    Function Name
+                  </label>
                   <input
                     className="w-full mt-1 border bg-white rounded px-3 py-2 text-sm text-gray-900 placeholder-gray-400 border-gray-200 focus:outline-none focus:ring-blue-400 focus:border-blue-400"
                     value={call.fnName}
@@ -273,7 +310,9 @@ const dummyAbi = [
                 </div>
 
                 <div className="mb-2">
-                  <label className="text-sm font-medium text-gray-700">Function Args (JSON)</label>
+                  <label className="text-sm font-medium text-gray-700">
+                    Function Args (JSON)
+                  </label>
                   <input
                     className="w-full mt-1 border bg-white rounded px-3 py-2 text-sm text-gray-900 placeholder-gray-400 border-gray-200 focus:outline-none focus:ring-blue-400 focus:border-blue-400"
                     value={call.args}
@@ -312,6 +351,7 @@ const dummyAbi = [
           </>
         )}
 
+        {/* Form Actions */}
         <div className="flex justify-end space-x-3 pt-2">
           <button
             onClick={onClose}
