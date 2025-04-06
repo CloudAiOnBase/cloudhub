@@ -23,6 +23,7 @@ export default function DashboardPage() {
     priceUsd: number;
     priceChange24h: number;
   } | null>(null);
+  const [holders, setHolders] = useState<number | null>(null);
 
   // Token price
   const fetchCloudPrice = async () => {
@@ -88,6 +89,33 @@ export default function DashboardPage() {
     },
   });
 
+
+  // Total stakers
+  const {
+    data: totalStakers,
+    refetch: refetchTotalStakers,
+  } = useReadContract({
+    abi: stakingAbi,
+    address: stakingAddress as `0x${string}`,
+    functionName: 'totalStakers',
+    query: {
+      enabled: !!userAddress,
+    },
+  });
+
+  // Holders
+  useEffect(() => {
+    fetch('/api/holders')
+      .then(res => res.json())
+      .then(data => {
+        console.log(data);
+        console.log('🧍 Holders:', data.holders);
+        setHolders(data.holders);
+      });
+  }, []);
+
+
+
   useEffect(() => {
     const fetchAll = () => {
       fetchCloudPrice().then(data => {
@@ -99,6 +127,7 @@ export default function DashboardPage() {
     refetchApr();
     refetchTotalStaked();
     refetchCircSupply();
+    refetchTotalStakers();
     };
 
     fetchAll(); // Initial fetch
@@ -144,86 +173,97 @@ export default function DashboardPage() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-      <div className="bg-white shadow rounded-lg p-4">
-        <h2 className="text-sm font-medium text-gray-500">Token Price</h2>
-        <p className="text-2xl font-bold text-gray-900 mt-2">
-          {cloudPriceData?.priceUsd
-            ? `$${cloudPriceData.priceUsd.toFixed(6)}`
-            : 'No data'}
-        </p>
-        {!cloudPriceData && (
-          <p className="text-xs text-gray-400 italic mt-1">
-            Waiting for trades to display price data...
-          </p>
-        )}
-      </div>
+
 
       <div className="bg-white shadow rounded-lg p-4">
-        <h2 className="text-sm font-medium text-gray-500">24h Change</h2>
-        <p className={`text-2xl font-bold mt-2 ${
-          cloudPriceData?.priceChange24h === undefined
-            ? ''
-            : cloudPriceData.priceChange24h >= 0
-              ? 'text-green-600'
-              : 'text-red-600'
-        }`}>
-          {cloudPriceData?.priceChange24h !== undefined
-            ? `${cloudPriceData.priceChange24h >= 0 ? '+' : ''}${cloudPriceData.priceChange24h.toFixed(2)}%`
-            : 'No data'}
+        <h2 className="text-sm font-medium text-gray-500 mb-1">Token Price / 24h Change</h2>
+        <p className="text-2xl font-bold text-gray-900 mt-2 flex items-baseline space-x-3">
+          {cloudPriceData?.priceUsd !== undefined ? (
+            <>
+              <span>${cloudPriceData.priceUsd.toFixed(6)}</span>
+              <span
+                className={`text-xl font-bold ${
+                  cloudPriceData.priceChange24h >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}
+              >
+                ({cloudPriceData.priceChange24h >= 0 ? '+' : ''}
+                {cloudPriceData.priceChange24h.toFixed(2)}%)
+              </span>
+            </>
+          ) : (
+            <span className="text-base text-gray-500">No data</span>
+          )}
         </p>
       </div>
 
 
+
       <div className="bg-white shadow rounded-lg p-4">
-        <h2 className="text-sm font-medium text-gray-500">Market Cap</h2>
+        <h2 className="text-sm font-medium text-gray-500 mb-1">Market Cap / FDV</h2>
         <p className="text-2xl font-bold text-gray-900 mt-2">
           {cloudPriceData?.priceUsd && circSupply
             ? `$${(cloudPriceData.priceUsd * Number(formatUnits(circSupply as bigint, 18))).toLocaleString(undefined, {
                 maximumFractionDigits: 0,
-              })}`
-            : 'No data'}
-        </p>
-      </div>
-
-      <div className="bg-white shadow rounded-lg p-4">
-        <h2 className="text-sm font-medium text-gray-500">FDV</h2>
-        <p className="text-2xl font-bold text-gray-900 mt-2">
-          {cloudPriceData?.priceUsd
-            ? `$${(cloudPriceData.priceUsd * 1_000_000_000).toLocaleString(undefined, {
+              })} / $${(cloudPriceData.priceUsd * 1_000_000_000).toLocaleString(undefined, {
                 maximumFractionDigits: 0,
               })}`
             : 'No data'}
         </p>
       </div>
 
-      <div className="bg-white shadow rounded-lg p-4">
-        <h2 className="text-sm font-medium text-gray-500">Total Staked</h2>
-        <p className="text-2xl font-bold text-gray-900 mt-2">{format(totalStaked as bigint, 0)} CLOUD</p>
-      </div>
 
       <div className="bg-white shadow rounded-lg p-4">
-        <h2 className="text-sm font-medium text-gray-500">Circulating Supply</h2>
-        <p className="text-2xl font-bold text-gray-900 mt-2">{format(circSupply as bigint, 0)} CLOUD</p>
+        <h2 className="text-sm font-medium text-gray-500 mb-1">Circulating / Total Supply</h2>
+        <p className="text-2xl font-bold text-gray-900 mt-2 flex items-baseline space-x-2">
+          <span>
+            {circSupply
+              ? `${format(circSupply as bigint, 0)} / 1,000,000,000`
+              : 'No data'}
+          </span>
+          <span className="text-base font-mono text-gray-500">CLOUD</span>
+        </p>
       </div>
 
+
       <div className="bg-white shadow rounded-lg p-4">
-        <h2 className="text-sm font-medium text-gray-500">Staking APR</h2>
+        <h2 className="text-sm font-medium text-gray-500 mb-1">Stakers / Holders</h2>
         <p className="text-2xl font-bold text-gray-900 mt-2">
-        {aprE2 !== undefined && aprE2 !== null && (
-          <span>{(Number(aprE2) / 100).toFixed(2)}%</span>
-        )}</p>
+          {totalStakers && holders
+            ? `${totalStakers.toLocaleString()} / ${holders.toLocaleString()}`
+            : 'Loading...'}
+        </p>
       </div>
+
+
+      <div className="bg-white shadow rounded-lg p-4">
+        <h2 className="text-sm font-medium text-gray-500 mb-1">Total Staked /  % Staked</h2>
+        <p className="text-2xl font-bold text-gray-900 mt-2 flex items-baseline space-x-2">
+          <span>{format(totalStaked as bigint, 0)}</span>
+          <span className="text-base font-mono text-gray-500">CLOUD</span>
+          {circSupply && totalStaked && (
+            <span className="text-xl font-bold text-gray-900 mt-2 flex items-baseline space-x-2">
+              ({((Number(totalStaked) / Number(circSupply)) * 100).toFixed(2)}%)
+            </span>
+          )}
+        </p>
+      </div>
+
 
 
       <div className="bg-white shadow rounded-lg p-4 flex flex-col justify-between">
         <div>
-          <h2 className="text-sm font-medium text-gray-500">💎 Stake your CLOUD</h2>
-          <p className="text-base text-gray-700 mt-2">
-            Earn rewards by staking your tokens.
+          <h2 className="text-sm font-medium text-gray-500 mb-1">💎 Staking APR</h2>
+          <p className="text-2xl font-bold text-gray-900 mt-2">
+            {aprE2 !== undefined && aprE2 !== null
+              ? `${(Number(aprE2) / 100).toFixed(2)}%`
+              : 'Loading...'}
+          </p>
+          <p className="text-sm text-gray-600 mt-2">
+            Earn rewards by staking your tokens securely and passively.
           </p>
         </div>
         <button
-          className="mt-3 inline-block text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded"
+          className="mt-4 inline-block text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded"
           onClick={() => {
             window.location.href = '/staking';
           }}
@@ -231,6 +271,9 @@ export default function DashboardPage() {
           Stake Now
         </button>
       </div>
+
+
+
 
       <p className="text-xs text-gray-500 mt-1">
         {getRelativeTime(lastUpdated)}
