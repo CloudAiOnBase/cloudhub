@@ -9,15 +9,22 @@ export async function GET() {
   if (!holderCount || now - lastUpdated > threeHours) {
     console.log('🔄 Fetching holder count...');
     const count = await getHolderCount();
-    if (count !== null) updateHolderCache(count);
+    if (count !== null) {
+      updateHolderCache(count);
+    } else {
+      console.warn('⚠️ Failed to fetch holder count. Using 0 as fallback.');
+      updateHolderCache(0);
+    }
+  } else {
+    console.log('⚡ Using cached holder count...');
   }
-  else
-  {
-    console.log('🔄 Using cache ...');
-  }
-
 
   const lastUpdatedISO = lastUpdated ? new Date(lastUpdated).toISOString() : null;
+
+  console.log('✅ Responding with:', {
+    holders: holderCount,
+    lastUpdated: lastUpdatedISO,
+  });
 
   return NextResponse.json({
     holders: holderCount,

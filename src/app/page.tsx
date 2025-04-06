@@ -105,18 +105,6 @@ export default function DashboardPage() {
 
   // Holders
   useEffect(() => {
-    fetch('/api/holders')
-      .then(res => res.json())
-      .then(data => {
-        console.log(data);
-        console.log('🧍 Holders:', data.holders);
-        setHolders(data.holders);
-      });
-  }, []);
-
-
-
-  useEffect(() => {
     const cached = localStorage.getItem('holders');
     const cachedTime = localStorage.getItem('holdersUpdated');
 
@@ -226,9 +214,10 @@ export default function DashboardPage() {
       <div className="bg-white shadow rounded-lg p-4">
         <h2 className="text-sm font-medium text-gray-500 mb-1">Stakers / Holders</h2>
         <p className="text-2xl font-bold text-gray-900 mt-2">
-          {totalStakers && holders
-            ? `${totalStakers.toLocaleString()} / ${holders.toLocaleString()}`
-            : 'Loading...'}
+            {holders !== null && holders !== undefined &&
+             totalStakers !== null && totalStakers !== undefined ? (
+              `${totalStakers.toLocaleString()} / ${holders.toLocaleString()}`
+                     ) : 'Loading...'}
         </p>
       </div>
 
@@ -280,4 +269,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
