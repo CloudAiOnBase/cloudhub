@@ -118,17 +118,25 @@ export default function ProposalPage() {
   }, [proposals])
 
   // Fetch Proposal Metadata & Votes
+  // Always-readable calls
+  const baseCalls = [
+    { abi: governorAbi, address: governorAddress, functionName: 'state', args: [proposalId] },
+    { abi: governorAbi, address: governorAddress, functionName: 'proposalsMetadata', args: [proposalId] },
+    { abi: governorAbi, address: governorAddress, functionName: 'proposalVotes', args: [proposalId] },
+    { abi: governorAbi, address: governorAddress, functionName: 'votesVeto', args: [proposalId] },
+  ]
+
+  // Only include these if wallet is connected
+  const userCalls = address ? [
+    { abi: governorAbi, address: governorAddress, functionName: 'votes', args: [proposalId, address] },
+    { abi: governorAbi, address: governorAddress, functionName: 'voteWeights', args: [proposalId, address] },
+  ] : []
+
   const proposalCalls = useMemo(() => {
-    if (!proposalId || !address) return []
-    return [
-      { abi: governorAbi, address: governorAddress as `0x${string}`, functionName: 'state', args: [proposalId] },
-      { abi: governorAbi, address: governorAddress as `0x${string}`, functionName: 'proposalsMetadata', args: [proposalId] },
-      { abi: governorAbi, address: governorAddress as `0x${string}`, functionName: 'proposalVotes', args: [proposalId] },
-      { abi: governorAbi, address: governorAddress as `0x${string}`, functionName: 'votesVeto', args: [proposalId] },
-      { abi: governorAbi, address: governorAddress as `0x${string}`, functionName: 'votes', args: [proposalId, address] },
-      { abi: governorAbi, address: governorAddress as `0x${string}`, functionName: 'voteWeights', args: [proposalId, address] },
-    ]
+    if (!proposalId) return []
+    return [...baseCalls, ...userCalls]
   }, [proposalId, address])
+
 
   const { data: proposalResults, refetch } = useReadContracts({
     contracts: proposalCalls,
@@ -136,7 +144,7 @@ export default function ProposalPage() {
   })
 
   const proposalData: ProposalData | undefined = useMemo(() => {
-    if (!proposalResults || proposalResults.length < 6) return undefined
+    if (!proposalResults || proposalResults.length < 4) return undefined
     const votes = proposalResults?.[2]?.result as [bigint, bigint, bigint] | undefined
     return {
       id: proposalId,
@@ -145,10 +153,11 @@ export default function ProposalPage() {
       votes,
       totalVotes: (votes?.[0] || 0n) + (votes?.[1] || 0n) + (votes?.[2] || 0n) || 1n,
       vetos: proposalResults[3]?.result as bigint,
-      myVote: proposalResults[4]?.result as number,
-      myVoteWeight: proposalResults[5]?.result as bigint,
+      myVote: proposalResults[4]?.result as number,            // may be undefined if not connected
+      myVoteWeight: proposalResults[5]?.result as bigint,      // may be undefined if not connected
     }
   }, [proposalResults, proposalId])
+
 
   // Combine vote-related effects into one
   useEffect(() => {
@@ -467,22 +476,32 @@ export default function ProposalPage() {
             </div>
             <div className="mt-4 mb-5">
               <div className="relative h-3 bg-gray-200 rounded overflow-hidden flex">
+                {/* Yes */}
                 <div
                   className="h-full bg-green-500"
                   style={{
-                    width: `${((Number(proposalData?.votes?.[1] || 0n) / Number(proposalData?.totalVotes || 1n)) * 100).toFixed(2)}%`,
+                    width: `${((Number(proposalData?.votes?.[1] || 0n) / Number(proposalData?.metadata?.[9] || 1n)) * 100).toFixed(2)}%`,
                   }}
                 ></div>
+                {/* No */}
                 <div
                   className="h-full bg-red-500"
                   style={{
-                    width: `${((Number(proposalData?.votes?.[0] || 0n) / Number(proposalData?.totalVotes || 1n)) * 100).toFixed(2)}%`,
+                    width: `${((Number(proposalData?.votes?.[0] || 0n) / Number(proposalData?.metadata?.[9] || 1n)) * 100).toFixed(2)}%`,
                   }}
                 ></div>
+                {/* Abstain */}
                 <div
                   className="h-full bg-gray-400"
                   style={{
-                    width: `${((Number(proposalData?.votes?.[2] || 0n) / Number(proposalData?.totalVotes || 1n)) * 100).toFixed(2)}%`,
+                    width: `${((Number(proposalData?.votes?.[2] || 0n) / Number(proposalData?.metadata?.[9] || 1n)) * 100).toFixed(2)}%`,
+                  }}
+                ></div>
+                {/* Not voted */}
+                <div
+                  className="h-full bg-gray-300"
+                  style={{
+                    width: `${(((Number(proposalData?.metadata?.[9] || 0n) - Number(proposalData?.totalVotes || 0n)) / Number(proposalData?.metadata?.[9] || 1n)) * 100).toFixed(2)}%`,
                   }}
                 ></div>
               </div>
@@ -517,100 +536,108 @@ export default function ProposalPage() {
       </div>
 
       {/* Your Vote Section */}
-      <div className="bg-white rounded-lg shadow p-6 space-y-6">
-        <h2 className="text-md font-semibold text-gray-800">Your vote</h2>
-        {proposalData?.state !== 0 && proposalData?.state !== 2 && (
-          <>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      {address && (
+        <div className="bg-white rounded-lg shadow p-6 space-y-6">
+          <h2 className="text-md font-semibold text-gray-800">Your vote</h2>
+          {proposalData?.state !== 0 && proposalData?.state !== 2 && (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <button
+                  onClick={() => setVote('yes')}
+                  className={`border rounded px-4 py-2 font-semibold ${
+                    vote && vote !== 'yes' ? 'opacity-60 hover:opacity-80' : ''
+                  } ${vote === 'yes' ? 'bg-green-100 border-green-600 text-green-600' : 'text-green-600 border-green-300'}`}
+                >
+                  Yes
+                </button>
+                <button
+                  onClick={() => setVote('abstain')}
+                  className={`border rounded px-4 py-2 font-semibold ${
+                    vote && vote !== 'abstain' ? 'opacity-60 hover:opacity-80' : ''
+                  } ${vote === 'abstain' ? 'bg-blue-100 border-blue-600 text-blue-600' : 'text-blue-600 border-blue-300'}`}
+                >
+                  Abstain
+                </button>
+                <button
+                  onClick={() => setVote('no')}
+                  className={`border rounded px-4 py-2 font-semibold ${
+                    vote && vote !== 'no' ? 'opacity-60 hover:opacity-80' : ''
+                  } ${vote === 'no' ? 'bg-red-100 border-red-600 text-red-600' : 'text-red-600 border-red-300'}`}
+                >
+                  No
+                </button>
+                <button
+                  onClick={() => setVote('spam')}
+                  className={`border rounded px-4 py-2 font-semibold ${
+                    vote && vote !== 'spam' ? 'opacity-60 hover:opacity-80' : ''
+                  } ${vote === 'spam' ? 'bg-red-100 border-red-800 text-red-800' : 'text-red-800 border-red-400'}`}
+                >
+                  Spam
+                </button>
+              </div>
               <button
-                onClick={() => setVote('yes')}
-                className={`border rounded px-4 py-2 font-semibold ${
-                  vote && vote !== 'yes' ? 'opacity-60 hover:opacity-80' : ''
-                } ${vote === 'yes' ? 'bg-green-100 border-green-600 text-green-600' : 'text-green-600 border-green-300'}`}
-              >
-                Yes
-              </button>
-              <button
-                onClick={() => setVote('abstain')}
-                className={`border rounded px-4 py-2 font-semibold ${
-                  vote && vote !== 'abstain' ? 'opacity-60 hover:opacity-80' : ''
-                } ${vote === 'abstain' ? 'bg-blue-100 border-blue-600 text-blue-600' : 'text-blue-600 border-blue-300'}`}
-              >
-                Abstain
-              </button>
-              <button
-                onClick={() => setVote('no')}
-                className={`border rounded px-4 py-2 font-semibold ${
-                  vote && vote !== 'no' ? 'opacity-60 hover:opacity-80' : ''
-                } ${vote === 'no' ? 'bg-red-100 border-red-600 text-red-600' : 'text-red-600 border-red-300'}`}
-              >
-                No
-              </button>
-              <button
-                onClick={() => setVote('spam')}
-                className={`border rounded px-4 py-2 font-semibold ${
-                  vote && vote !== 'spam' ? 'opacity-60 hover:opacity-80' : ''
-                } ${vote === 'spam' ? 'bg-red-100 border-red-800 text-red-800' : 'text-red-800 border-red-400'}`}
-              >
-                Spam
-              </button>
-            </div>
-            <button
-              className="w-full bg-blue-600 text-white px-6 py-2 rounded font-semibold hover:bg-blue-700 disabled:opacity-50"
-              disabled={
-                !vote ||
-                isVoting ||
-                proposalData?.state !== 1 ||
-                (vote === lastSubmittedVote && (proposalData?.myVoteWeight || 0n) > 0n)
-              }
-              onClick={async () => {
-                if (!vote) return alert('Please select a vote option')
-                let toastId
-                try {
-                  setIsVoting(true)
-                  const voteValue = voteOptions[vote]
-                  const txHash = await writeContractAsync({
-                    address: governorAddress,
-                    abi: governorAbi,
-                    functionName: 'castVote',
-                    args: [proposalId, voteValue],
-                  })
-                  toastId = toast.loading('Submitting your vote...')
-                  if (!publicClient) return
-                  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
-                  if (receipt.status === 'success') {
-                    toast.success('Vote submitted!', { id: toastId })
-                    refetch()
-                    setLastSubmittedVote(vote)
-                  } else {
-                    toast.error('Vote failed', { id: toastId })
-                  }
-                } catch (err) {
-                  console.error('Vote failed', err)
-                  toast.error('Failed to submit vote', { id: toastId })
-                } finally {
-                  setIsVoting(false)
+                className="w-full bg-blue-600 text-white px-6 py-2 rounded font-semibold hover:bg-blue-700 disabled:opacity-50"
+                disabled={
+                  !vote ||
+                  isVoting ||
+                  proposalData?.state !== 1 ||
+                  (vote === lastSubmittedVote && (proposalData?.myVoteWeight || 0n) > 0n)
                 }
-              }}
-            >
-              {isVoting ? 'Voting...' : 'Vote'}
-            </button>
-            <p className="text-xs text-gray-500 text-center italic">
-              * Spam: Counts as a NO and slashes the proposer’s deposit if the proposal is rejected.
+                onClick={async () => {
+                  if (!vote) return alert('Please select a vote option')
+                  let toastId
+                  try {
+                    setIsVoting(true)
+                    const voteValue = voteOptions[vote]
+                    const txHash = await writeContractAsync({
+                      address: governorAddress,
+                      abi: governorAbi,
+                      functionName: 'castVote',
+                      args: [proposalId, voteValue],
+                    })
+                    toastId = toast.loading('Submitting your vote...')
+                    if (!publicClient) return
+                    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
+                    if (receipt.status === 'success') {
+                      toast.success('Vote submitted!', { id: toastId })
+                      refetch()
+                      setLastSubmittedVote(vote)
+                    } else {
+                      toast.error('Vote failed', { id: toastId })
+                    }
+                  } catch (err) {
+                    console.error('Vote failed', err)
+                    toast.error('Failed to submit vote', { id: toastId })
+                  } finally {
+                    setIsVoting(false)
+                  }
+                }}
+              >
+                {isVoting ? 'Voting...' : 'Vote'}
+              </button>
+              <p className="text-xs text-gray-500 text-center italic">
+                * Spam: Counts as a NO and slashes the proposer’s deposit if the proposal is rejected.
+              </p>
+            </>
+          )}
+          {proposalData?.state === 0 && (
+            <p className="text-sm text-center text-gray-500">
+              Voting is not active yet for this proposal.
             </p>
-          </>
-        )}
-        {proposalData?.state === 0 && (
-          <p className="text-sm text-center text-gray-500">
-            Voting is not active yet for this proposal.
-          </p>
-        )}
-        {proposalData?.state === 2 && (
-          <p className="text-sm text-center text-gray-500">
-            The proposal was cancelled before voting began.
-          </p>
-        )}
-      </div>
+          )}
+          {proposalData?.state === 2 && (
+            <p className="text-sm text-center text-gray-500">
+              The proposal was cancelled before voting began.
+            </p>
+          )}
+        </div>
+      )} 
+
+      {!address && (
+        <div className="text-center text-gray-500 text-sm italic">
+          Connect your wallet to vote.
+        </div>
+      )}
     </div>
   )
 }

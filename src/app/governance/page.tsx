@@ -15,6 +15,9 @@ import ProposalForm from '@/components/ProposalForm';
 import { formatUnits, parseUnits } from 'viem';
 import Link from 'next/link';
 
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import clsx from 'clsx';
+
 export default function GovernancePage() {
   // ==========================
   // Constants & State Variables
@@ -148,18 +151,9 @@ export default function GovernancePage() {
   // ==========================
   const proposalCalls =
     govProposals?.flatMap((proposalId) => [
-      {
-        abi: governorAbi,
-        address: governorAddress as `0x${string}`,
-        functionName: 'proposalsMetadata',
-        args: [proposalId],
-      },
-      {
-        abi: governorAbi,
-        address: governorAddress as `0x${string}`,
-        functionName: 'state',
-        args: [proposalId],
-      },
+      { abi: governorAbi, address: governorAddress as `0x${string}`, functionName: 'proposalsMetadata', args: [proposalId],},
+      { abi: governorAbi, address: governorAddress as `0x${string}`, functionName: 'state',             args: [proposalId],},
+      { abi: governorAbi, address: governorAddress as `0x${string}`, functionName: 'proposalVotes',     args: [proposalId],},
     ]) || [];
 
   const { data: proposalResults } = useReadContracts({
@@ -169,8 +163,9 @@ export default function GovernancePage() {
 
   const proposalData = govProposals?.map((proposalId: bigint, i: number) => ({
     id: proposalId,
-    metadata: proposalResults?.[i * 2]?.result as ProposalMetadata,
-    state: proposalResults?.[i * 2 + 1]?.result as number,
+    metadata: proposalResults?.[i * 3]?.result as ProposalMetadata,
+    state:    proposalResults?.[i * 3 + 1]?.result as number,
+    votes:    proposalResults?.[i * 3 + 2]?.result as [bigint, bigint, bigint] | undefined,
   }));
 
   // ==========================
@@ -253,6 +248,7 @@ export default function GovernancePage() {
     }
   }
 
+
   // ==========================
   // Memoize Reversed Proposals
   // ==========================
@@ -294,6 +290,34 @@ export default function GovernancePage() {
                 govParams?.[0] ?? 0n
               );
 
+
+             const formatVotes = (v: bigint | undefined) => Number(v || 0n) / 1e18;
+
+              // Order: [no, yes, abstain]
+              const yes = formatVotes(p.votes?.[1]);
+              const no = formatVotes(p.votes?.[0]);
+              const abstain = formatVotes(p.votes?.[2]);
+              const total = yes + no + abstain;
+              // Use safeTotal to avoid division by zero
+              const safeTotal = total || 1;
+
+              // Calculate percentages for each vote
+              const yesPct = (yes / safeTotal) * 100;
+              const noPct = (no / safeTotal) * 100;
+              const abstainPct = 100 - (yesPct + noPct);
+
+              const COLORS = {
+                for: '#4ade80',      // green
+                against: '#f87171',  // red
+                abstain: '#d1d5db',  // gray
+              };
+
+              const data = [
+                { name: 'For', value: yesPct, color: COLORS.for },
+                { name: 'Against', value: noPct, color: COLORS.against },
+                { name: 'Abstain', value: abstainPct, color: COLORS.abstain },
+              ];
+
               return (
                 <div key={p.id.toString()} className="bg-white shadow rounded-lg p-4 space-y-4">
                   <div className="flex justify-between items-start">
@@ -323,22 +347,41 @@ export default function GovernancePage() {
                       })  : '...'}
                   </p>
                   <div className="flex items-center justify-between mt-4">
-                    <div className="relative w-16 h-16">
-                      <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                        <circle cx="50" cy="50" r="45" stroke="#d1d5db" strokeWidth="10" fill="none" />
-                        <circle
-                          cx="50"
-                          cy="50"
-                          r="45"
-                          stroke="#3b82f6"
-                          strokeWidth="10"
-                          strokeDasharray="282.6"
-                          strokeDashoffset={0}
-                          fill="none"
-                          strokeLinecap="round"
-                        />
-                      </svg>
+
+                  <div className="w-26 h-26 relative">
+                    <div
+                      className={clsx(
+                        'w-full h-full rounded-full transition-shadow duration-500',
+                      )}
+                    >
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={data}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={32}
+                            outerRadius={50}
+                            dataKey="value"
+                            stroke="none"
+                            isAnimationActive={true}
+                            animationDuration={600}
+                            animationEasing="ease-in-out"
+                            paddingAngle={0.5}
+                          >
+                            {data.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
                     </div>
+
+                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-sm font-semibold text-gray-500">
+                      {yesPct}%
+                    </div>
+                  </div>
+
                     <div className="text-sm text-gray-600">
                       {timeInfo.label} <br />
                       <span className="font-medium text-gray-900">{timeInfo.content}</span>

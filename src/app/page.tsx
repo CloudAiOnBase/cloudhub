@@ -103,23 +103,22 @@ export default function DashboardPage() {
     },
   });
 
-
   // Holders
   const fetchHolders = () => {
-    const cached = localStorage.getItem('holders');
-    const cachedTime = localStorage.getItem('holdersUpdated');
-    const now = Date.now();
-    const expired = !cachedTime || now - Number(cachedTime) > 1 * 60 * 60 * 1000;
-    const parsedCached = Number(cached);
+    const cached        = localStorage.getItem('holders');
+    const cachedTime    = localStorage.getItem('holdersUpdated');
+    const now           = Date.now();
+    const expired       = !cachedTime || now - Number(cachedTime) > 20 * 60 * 1000; // 20 min
+    const parsedCached  = Number(cached);
 
     if (isNaN(parsedCached) || expired) {
       console.log('refetch holders count');
       fetch('/api/holders')
-        .then(res => res.json())
+        .then(res  => res.json())
         .then(data => {
           if (typeof data.holders === 'number') {
-            localStorage.setItem('holders', data.holders.toString()); 
-            localStorage.setItem('holdersUpdated', now.toString());
+            localStorage.setItem('holders',         data.holders.toString()); 
+            localStorage.setItem('holdersUpdated',  now.toString());
             setHolders(data.holders);
           } else {
             console.warn('Invalid holders value from API:', data);
