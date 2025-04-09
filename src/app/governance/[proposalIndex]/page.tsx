@@ -64,11 +64,12 @@ export default function ProposalPage() {
           boolean          // depositClaimed
         ]
       | undefined
-    votes?: [bigint, bigint, bigint] // [no, yes, abstain]
-    totalVotes: bigint
-    vetos?: bigint
-    myVote?: number
-    myVoteWeight?: bigint
+    votes?:         [bigint, bigint, bigint] // [no, yes, abstain]
+    totalVotes:     bigint
+    vetos?:         bigint
+    deadline?:      bigint
+    myVote?:        number
+    myVoteWeight?:  bigint
   }
 
   // ---------------------------
@@ -120,10 +121,11 @@ export default function ProposalPage() {
   // Fetch Proposal Metadata & Votes
   // Always-readable calls
   const baseCalls = [
-    { abi: governorAbi, address: governorAddress, functionName: 'state', args: [proposalId] },
+    { abi: governorAbi, address: governorAddress, functionName: 'state',             args: [proposalId] },
     { abi: governorAbi, address: governorAddress, functionName: 'proposalsMetadata', args: [proposalId] },
-    { abi: governorAbi, address: governorAddress, functionName: 'proposalVotes', args: [proposalId] },
-    { abi: governorAbi, address: governorAddress, functionName: 'votesVeto', args: [proposalId] },
+    { abi: governorAbi, address: governorAddress, functionName: 'proposalVotes',     args: [proposalId] },
+    { abi: governorAbi, address: governorAddress, functionName: 'votesVeto',         args: [proposalId] },
+    { abi: governorAbi, address: governorAddress, functionName: 'proposalDeadline',  args: [proposalId],},
   ]
 
   // Only include these if wallet is connected
@@ -144,17 +146,18 @@ export default function ProposalPage() {
   })
 
   const proposalData: ProposalData | undefined = useMemo(() => {
-    if (!proposalResults || proposalResults.length < 4) return undefined
+    if (!proposalResults || proposalResults.length < 5) return undefined
     const votes = proposalResults?.[2]?.result as [bigint, bigint, bigint] | undefined
     return {
-      id: proposalId,
-      state: proposalResults[0]?.result as number,
-      metadata: proposalResults[1]?.result as ProposalData['metadata'],
+      id:           proposalId,
+      state:        proposalResults[0]?.result as number,
+      metadata:     proposalResults[1]?.result as ProposalData['metadata'],
       votes,
-      totalVotes: (votes?.[0] || 0n) + (votes?.[1] || 0n) + (votes?.[2] || 0n) || 1n,
-      vetos: proposalResults[3]?.result as bigint,
-      myVote: proposalResults[4]?.result as number,            // may be undefined if not connected
-      myVoteWeight: proposalResults[5]?.result as bigint,      // may be undefined if not connected
+      totalVotes:   (votes?.[0] || 0n) + (votes?.[1] || 0n) + (votes?.[2] || 0n) || 1n,
+      vetos:        proposalResults[3]?.result as bigint,
+      deadline:     proposalResults[4]?.result as bigint,
+      myVote:       proposalResults[5]?.result as number,      // may be undefined if not connected
+      myVoteWeight: proposalResults[6]?.result as bigint,      // may be undefined if not connected
     }
   }, [proposalResults, proposalId])
 
@@ -261,7 +264,7 @@ export default function ProposalPage() {
     state: number,
     snapshot: bigint,
     latestBlockNumber: bigint,
-    votingPeriod: bigint,
+    votingDeadline: bigint,
     averageBlockTime = 2
   ): { label: string; content: string } {
     switch (state) {
@@ -276,7 +279,7 @@ export default function ProposalPage() {
         return { label: 'Starts in', content: 'less than a minute' }
       }
       case 1: {
-        const endBlock = snapshot + (votingPeriod * 86400n / 2n)
+        const endBlock = votingDeadline
         const remainingBlocks = endBlock - latestBlockNumber
         if (remainingBlocks <= 0n) return { label: 'Voting', content: 'ended' }
         const secondsLeft = Number(remainingBlocks) * averageBlockTime
@@ -362,7 +365,7 @@ export default function ProposalPage() {
     proposalData?.state ?? 0,
     BigInt(proposalData?.metadata?.[7] ?? 0),
     BigInt(latestBlock?.number ?? 0),
-    BigInt(govParams?.[0] ?? 0)
+    BigInt(proposalData?.deadline ?? 0)
   )
   const tallyStatus     = mapTallyState(proposalData, govParams)
 
@@ -478,14 +481,14 @@ export default function ProposalPage() {
               <div className="relative h-3 bg-gray-200 rounded overflow-hidden flex">
                 {/* Yes */}
                 <div
-                  className="h-full bg-green-500"
+                  className="h-full bg-green-400"
                   style={{
                     width: `${((Number(proposalData?.votes?.[1] || 0n) / Number(proposalData?.metadata?.[9] || 1n)) * 100).toFixed(2)}%`,
                   }}
                 ></div>
                 {/* No */}
                 <div
-                  className="h-full bg-red-500"
+                  className="h-full bg-red-400"
                   style={{
                     width: `${((Number(proposalData?.votes?.[0] || 0n) / Number(proposalData?.metadata?.[9] || 1n)) * 100).toFixed(2)}%`,
                   }}
@@ -499,7 +502,7 @@ export default function ProposalPage() {
                 ></div>
                 {/* Not voted */}
                 <div
-                  className="h-full bg-gray-300"
+                  className="h-full bg-gray-200"
                   style={{
                     width: `${(((Number(proposalData?.metadata?.[9] || 0n) - Number(proposalData?.totalVotes || 0n)) / Number(proposalData?.metadata?.[9] || 1n)) * 100).toFixed(2)}%`,
                   }}
@@ -507,7 +510,7 @@ export default function ProposalPage() {
               </div>
             </div>
             <div className="grid grid-cols-3 gap-4 text-sm">
-              <div className="border rounded p-2 text-center text-green-700 border-green-200">
+              <div className="border rounded p-2 text-center text-green-600 border-green-200">
                 <div className="font-semibold">Yes</div>
                 <div>{getPercent(proposalData?.votes?.[1], proposalData?.totalVotes)}%</div>
               </div>
@@ -515,7 +518,7 @@ export default function ProposalPage() {
                 <div className="font-semibold">No</div>
                 <div>{getPercent(proposalData?.votes?.[0], proposalData?.totalVotes)}%</div>
               </div>
-              <div className="border rounded p-2 text-center text-gray-700 border-gray-200">
+              <div className="border rounded p-2 text-center text-gray-600 border-gray-200">
                 <div className="font-semibold">Abstain</div>
                 <div>{getPercent(proposalData?.votes?.[2], proposalData?.totalVotes)}%</div>
               </div>

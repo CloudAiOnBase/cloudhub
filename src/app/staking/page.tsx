@@ -297,7 +297,11 @@ export default function StakingPage() {
 				  </div>
 				</div>
 			</div>
-
+      {!userAddress && (
+        <div className="text-center text-gray-500 text-sm italic">
+          Connect your wallet to see your stake.
+        </div>
+      )}
     </div>
   );
 }

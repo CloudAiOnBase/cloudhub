@@ -154,6 +154,7 @@ export default function GovernancePage() {
       { abi: governorAbi, address: governorAddress as `0x${string}`, functionName: 'proposalsMetadata', args: [proposalId],},
       { abi: governorAbi, address: governorAddress as `0x${string}`, functionName: 'state',             args: [proposalId],},
       { abi: governorAbi, address: governorAddress as `0x${string}`, functionName: 'proposalVotes',     args: [proposalId],},
+      { abi: governorAbi, address: governorAddress as `0x${string}`, functionName: 'proposalDeadline',  args: [proposalId],},
     ]) || [];
 
   const { data: proposalResults } = useReadContracts({
@@ -163,9 +164,10 @@ export default function GovernancePage() {
 
   const proposalData = govProposals?.map((proposalId: bigint, i: number) => ({
     id: proposalId,
-    metadata: proposalResults?.[i * 3]?.result as ProposalMetadata,
-    state:    proposalResults?.[i * 3 + 1]?.result as number,
-    votes:    proposalResults?.[i * 3 + 2]?.result as [bigint, bigint, bigint] | undefined,
+    metadata: proposalResults?.[i * 4]?.result as ProposalMetadata,
+    state:    proposalResults?.[i * 4 + 1]?.result as number,
+    votes:    proposalResults?.[i * 4 + 2]?.result as [bigint, bigint, bigint] | undefined,
+    deadline: proposalResults?.[i * 4 + 3]?.result as bigint,
   }));
 
   // ==========================
@@ -199,7 +201,7 @@ export default function GovernancePage() {
     state: number,
     snapshot: bigint,
     latestBlockNumber: bigint,
-    votingPeriod: bigint,
+    votingDeadline: bigint,
     averageBlockTime = 2
   ): VotingTimeInfo {
     switch (state) {
@@ -219,7 +221,7 @@ export default function GovernancePage() {
       }
       case 1: {
         // Active
-        const endBlock = snapshot + (votingPeriod * 86400n / 2n);
+        const endBlock = votingDeadline;
         const remainingBlocks = endBlock - latestBlockNumber;
         if (remainingBlocks <= 0n)
           return { label: 'Voting', content: 'ended' };
@@ -287,7 +289,7 @@ export default function GovernancePage() {
                 p.state as number,
                 p.metadata?.[7] ?? 0n,
                 latestBlock?.number ?? 0n,
-                govParams?.[0] ?? 0n
+                p.deadline ?? 0n
               );
 
 
