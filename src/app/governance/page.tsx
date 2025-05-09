@@ -93,7 +93,7 @@ export default function GovernancePage() {
       const computedPropsPerPage = Math.min(computedLastIndex, 10);
       setPropsPerPage(computedPropsPerPage);
       setLastIndex(computedLastIndex);
-      setStartIndex(Math.max(0, computedLastIndex - computedPropsPerPage - 1));
+      setStartIndex(Math.max(0, computedLastIndex - computedPropsPerPage));
     }
   }, [lastIndexRaw]);
 
@@ -106,7 +106,7 @@ export default function GovernancePage() {
     const computedPropsPerPage = Math.min(computedLastIndex, 10);
     setPropsPerPage(computedPropsPerPage);
     setLastIndex(computedLastIndex);
-    setStartIndex(Math.max(0, computedLastIndex - computedPropsPerPage - 1));
+    setStartIndex(Math.max(0, computedLastIndex - computedPropsPerPage));
   };
 
   if (typeof window !== 'undefined') {
@@ -145,6 +145,7 @@ export default function GovernancePage() {
     error: unknown;
     refetch: () => void;
   };
+
 
   // ==========================
   // Fetch Proposal Details
@@ -284,6 +285,9 @@ export default function GovernancePage() {
         {(govProposals && latestBlock && govParams) && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {reversedProposals?.map((p, i) => {
+              const computedId = Number(startIndex) + ((proposalData?.length ?? 0) - i);
+              if (computedId === 12) return null;
+
               const status = mapState(p.state as number);
               const timeInfo = getVotingTimeLeft(
                 p.state as number,
@@ -327,12 +331,12 @@ export default function GovernancePage() {
                       {status.label}
                     </span>
                     <span className="text-xs text-gray-400 font-medium">
-                      ID: {Number(startIndex) + ((proposalData?.length ?? 0) - i)}
+                      ID: {computedId}
                     </span>
                   </div>
 
                   <Link
-                    href={`/governance/${Number(startIndex) + ((proposalData?.length ?? 0) - i)}`}
+                    href={`/governance/${computedId}`}
                     className="block mb-3"
                   >
                     <h2 className="text-lg font-semibold text-blue-700 hover:underline">
