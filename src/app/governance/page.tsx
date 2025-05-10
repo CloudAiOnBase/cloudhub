@@ -11,10 +11,12 @@ import {
 import type { Abi } from 'viem';
 import { CONTRACTS } from '@/constants/contracts';
 import rawGovernorAbi from '@/abi/CloudGovernor.json';
+import stakingAbi from '@/abi/CloudStaking.json';
 import ProposalForm from '@/components/ProposalForm';
 import { formatUnits, parseUnits } from 'viem';
 import Link from 'next/link';
-
+import { toast } from 'react-hot-toast';
+import { useBlockNumber } from 'wagmi';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import clsx from 'clsx';
 
@@ -32,9 +34,12 @@ export default function GovernancePage() {
     timestamp: bigint;
   } | null>(null);
 
+
+  const { address: userAddress } = useAccount();
   const chainId = useChainId();
   type ChainId = keyof typeof CONTRACTS.STAKING_ADDRESSES;
   const governorAddress = CONTRACTS.GOVERNOR_ADDRESSES[chainId as ChainId];
+  const stakingAddress = CONTRACTS.STAKING_ADDRESSES[chainId as ChainId];
   const publicClient = usePublicClient();
 
   // ==========================
@@ -89,21 +94,26 @@ export default function GovernancePage() {
 
   useEffect(() => {
     if (lastIndexRaw !== undefined) {
-      const computedLastIndex = Number(lastIndexRaw);
-      const computedPropsPerPage = Math.min(computedLastIndex, 10);
-      setPropsPerPage(computedPropsPerPage);
+      const computedLastIndex  = Number(lastIndexRaw);
+      const computedPageSize   = Math.min(computedLastIndex, DEFAULT_PAGE_SIZE);
+      const start              = Math.max(0, computedLastIndex - computedPageSize);
+      setPropsPerPage(computedPageSize);
       setLastIndex(computedLastIndex);
-      setStartIndex(Math.max(0, computedLastIndex - computedPropsPerPage));
+      setStartIndex(start);
     }
   }, [lastIndexRaw]);
 
   // ==========================
   // Manual Refresh of Proposals List
   // ==========================
+
+  const DEFAULT_PAGE_SIZE = 10;
+
+
   const refreshProposalList = async () => {
     const { data } = await refetchLastIndexRaw();
     const computedLastIndex = Number(data);
-    const computedPropsPerPage = Math.min(computedLastIndex, 10);
+    const computedPropsPerPage = Math.min(computedLastIndex, DEFAULT_PAGE_SIZE);
     setPropsPerPage(computedPropsPerPage);
     setLastIndex(computedLastIndex);
     setStartIndex(Math.max(0, computedLastIndex - computedPropsPerPage));
@@ -112,6 +122,34 @@ export default function GovernancePage() {
   if (typeof window !== 'undefined') {
     (window as any).refreshProposalList = refreshProposalList;
   }
+
+  const goToPage = (newStartIndex: number) => {
+    if (lastIndex === null || propsPerPage === null) return;
+    const maxStart = Math.max(0, lastIndex - propsPerPage);
+    setStartIndex(Math.min(newStartIndex, maxStart));
+  };
+
+  const handlePrevious = () => {
+    if (startIndex !== null && propsPerPage !== null && startIndex > 0) {
+      if (startIndex <= DEFAULT_PAGE_SIZE) {
+        setPropsPerPage(startIndex);
+        setStartIndex(0);
+      } else {
+        setPropsPerPage(DEFAULT_PAGE_SIZE);
+        setStartIndex(startIndex - DEFAULT_PAGE_SIZE);
+      }
+    }
+  };
+
+  const handleNext = () => {
+    if (startIndex !== null && propsPerPage !== null && lastIndex !== null) {
+      const newStart = startIndex + propsPerPage;
+      const maxStart = Math.max(0, lastIndex - DEFAULT_PAGE_SIZE);
+      setStartIndex(Math.min(newStart, maxStart));
+      setPropsPerPage(DEFAULT_PAGE_SIZE);
+    }
+  };
+
 
   // ==========================
   // Fetch Governance Parameters
@@ -124,6 +162,24 @@ export default function GovernancePage() {
   }) as {
     data: [bigint, bigint, bigint, bigint, bigint] | undefined;
   };
+
+  // ==========================
+  // Fetch User Stake
+  // ==========================
+
+  const {
+    data: staked,
+  } = useReadContract({
+    abi: stakingAbi,
+    address: stakingAddress as `0x${string}`,
+    functionName: 'userStakedForTally',
+    args: !!userAddress && !!latestBlock?.number
+      ? [userAddress, latestBlock.number]
+      : undefined,
+    query: {
+      enabled: !!userAddress && !!latestBlock?.number,
+    },
+  });
 
   // ==========================
   // Fetch Governance Proposals (Paginated)
@@ -257,9 +313,15 @@ export default function GovernancePage() {
   // ==========================
   const reversedProposals = useMemo(() => proposalData?.slice().reverse(), [proposalData]);
 
+
+
+
   // ==========================
   // Render Component
   // ==========================
+  const minStakeRequired = (govParams?.[1] ?? 0n) * 10n ** 18n;
+  const hasEnoughStake = (staked as bigint) >= minStakeRequired;
+
   return (
     <>
       {/* Modal */}
@@ -272,11 +334,25 @@ export default function GovernancePage() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-800">Governance</h1>
           <button
-            onClick={() => setShowModal(true)}
-            className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 text-sm font-semibold"
+            onClick={() => {
+              if (!hasEnoughStake) {
+                toast(
+                  <>
+                    You need at least {formatUnits(minStakeRequired, 18)} CLOUD staked to create a proposal.
+                    <br />
+                    If you just staked, please wait 1 hour for it to be counted.
+                  </>
+                );
+                return;
+              }
+              setShowModal(true);
+            }}
+            disabled={!govParams || staked === undefined}
+            className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
           >
             New Proposal
           </button>
+
         </div>
 
         {loadingProposals && <p className="text-gray-600">Loading proposals...</p>}
@@ -401,31 +477,58 @@ export default function GovernancePage() {
 
         <div className="mt-6 flex justify-center gap-4">
           <button
-            className="px-4 py-2 rounded bg-white text-gray-300 border border-gray-200 shadow-sm font-medium"
-            disabled
+            onClick={handlePrevious}
+            disabled={startIndex === 0}
+            className={clsx(
+              'px-4 py-2 rounded border shadow-sm font-medium',
+              startIndex === 0
+                ? 'bg-white text-gray-300 border-gray-200'
+                : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-100'
+            )}
           >
             Previous
           </button>
+
           <button
-            className="px-4 py-2 rounded bg-white text-gray-300 border border-gray-200 shadow-sm font-medium"
-            disabled
+            onClick={handleNext}
+            disabled={
+              startIndex === null ||
+              propsPerPage === null ||
+              lastIndex === null ||
+              startIndex + propsPerPage >= lastIndex
+            }
+            className={clsx(
+              'px-4 py-2 rounded border shadow-sm font-medium',
+              startIndex !== null &&
+              startIndex + (propsPerPage ?? 0) >= (lastIndex ?? 0)
+                ? 'bg-white text-gray-300 border-gray-200'
+                : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-100'
+            )}
           >
             Next
           </button>
         </div>
 
+
         {/* Bottom Info Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600 text-center">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm text-gray-600 text-center">
           <div>
             <span className="font-bold text-gray-900">Voting period</span>
             <br />
             {govParams?.[0]} days
           </div>
-          <div>
-            <span className="font-bold text-gray-900">Deposit</span>
+                    <div>
+            <span className="font-bold text-gray-900">Stake threshold</span>
             <br />
             {typeof govParams?.[1] === 'bigint'
               ? format(govParams[1] * 10n ** 18n) + ' CLOUD'
+              : '...'}
+          </div>
+          <div>
+            <span className="font-bold text-gray-900">Deposit</span>
+            <br />
+            {typeof govParams?.[4] === 'bigint'
+              ? format(govParams[4] * 10n ** 18n) + ' CLOUD'
               : '...'}
           </div>
           <div>

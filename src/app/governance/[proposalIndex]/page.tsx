@@ -10,13 +10,14 @@ import {
   useReadContracts,
   usePublicClient,
 } from 'wagmi'
-import type { Abi } from 'viem'
 import { CONTRACTS } from '@/constants/contracts'
 import rawGovernorAbi from '@/abi/CloudGovernor.json'
 import sanitizeHtml from 'sanitize-html'
-import { formatUnits, parseUnits, keccak256, toBytes, decodeFunctionData } from 'viem'
+import { formatUnits, parseUnits, keccak256, toBytes, decodeFunctionData, Abi } from 'viem'
 import { toast } from 'react-hot-toast'
 import { ChevronLeft } from 'lucide-react'
+import { fetchAbi } from '@/lib/fetchAbi';
+
 
 export default function ProposalPage() {
 
@@ -41,6 +42,7 @@ export default function ProposalPage() {
   const [lastSubmittedVote, setLastSubmittedVote] = useState<null | 'yes' | 'no' | 'abstain' | 'spam'>(null)
   const [isVoting, setIsVoting] = useState(false)
   const [latestBlock, setLatestBlock] = useState<{ number: bigint; timestamp: bigint } | null>(null)
+  const [targetAbis, setTargetAbis] = useState<Record<string, Abi>>({});
 
   // ---------------------------
   // Types
@@ -179,6 +181,68 @@ export default function ProposalPage() {
       }
     }
   }, [proposalData]);
+
+  //-------------------
+
+  // EIP-1967 implementation slot:
+  // keccak256("eip1967.proxy.implementation") − 1
+  const IMPLEMENTATION_SLOT = '0x360894A13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc';
+
+    useEffect(() => {
+    if (!proposalData?.metadata || !publicClient) return;
+    (async () => {
+      const newAbis: Record<string, Abi> = {};
+
+      if (!proposalData?.metadata) {
+        return <p>Loading…</p>;
+      }
+
+      for (const target of proposalData.metadata[3]!) {
+        try {
+          // 1) fetch whatever ABI the scanner has for this address
+          let abi = await fetchAbi(target, chainId);
+
+          // 2) if there are no functions, assume it's a UUPS/ERC-1967 proxy
+          const hasFns = abi.some((item) => item.type === 'function');
+          if (!hasFns) {
+            // read implementation slot
+            const raw = await publicClient.getStorageAt({
+              address: target as `0x${string}`,
+              slot: IMPLEMENTATION_SLOT,
+            });
+
+           if (raw === undefined) {
+             throw new Error('Failed to read implementation slot');
+            }
+
+            const impl = `0x${raw.slice(-40)}`;           // last 20 bytes
+
+            // re-fetch the real ABI
+            abi = await fetchAbi(impl, chainId);
+          }
+
+          newAbis[target] = abi;
+        } catch (err: any) {
+          console.warn(`ABI load failed for ${target}:`, err);
+        }
+      }
+
+      setTargetAbis(newAbis);
+    })();
+  }, [proposalData?.metadata, chainId, publicClient]);
+
+  // somewhere at the top of your component:
+  function formatArg(arg: any): string {
+    if (typeof arg === 'bigint') {
+      return arg.toString();
+    }
+    if (Array.isArray(arg)) {
+      return '[' + arg.map(formatArg).join(', ') + ']';
+    }
+    // fallback for strings, addresses, bools, etc.
+    return JSON.stringify(arg);
+  }
+
 
   // ---------------------------
   // Utility Functions
@@ -340,16 +404,6 @@ export default function ProposalPage() {
   }
 
   // ---------------------------
-  // Dummy ABI for Decoding Contract Calls
-  // ---------------------------
-  const dummyAbi = [
-    { type: 'function', name: 'doNothing', stateMutability: 'nonpayable', inputs: [], outputs: [] },
-    { type: 'function', name: 'logTest', stateMutability: 'nonpayable', inputs: [{ name: 'message', type: 'string' }], outputs: [] },
-    { type: 'function', name: 'updateValue', stateMutability: 'nonpayable', inputs: [{ name: 'value', type: 'uint256' }], outputs: [] },
-    { type: 'function', name: 'pause', stateMutability: 'nonpayable', inputs: [], outputs: [] },
-  ]
-
-  // ---------------------------
   // Derived UI Variables
   // ---------------------------
   const isTextProposal =
@@ -415,42 +469,58 @@ export default function ProposalPage() {
         {!isTextProposal && (
           <>
             <h2 className="text-md font-semibold text-gray-800 mt-10">Contract Calls</h2>
+
             {proposalData?.metadata?.[3]?.map((target, i) => {
-              const calldata = proposalData.metadata?.[5]?.[i] ?? '0x'
-              let decoded
-              try {
-                decoded = decodeFunctionData({ abi: dummyAbi, data: calldata })
-              } catch (e) {
-                decoded = null
+
+              if (!proposalData?.metadata) {
+                return <p>Loading…</p>;
               }
-              return (
+
+              const calldata = proposalData.metadata[5]![i]!;
+              const abi = targetAbis[target];
+
+              let decoded: { functionName: string; args: any[] } | null = null;
+              if (abi) {
+                try {
+                  decoded = decodeFunctionData({ abi, data: calldata }) as {
+                    functionName: string;
+                    args: any[];
+                  };
+                } catch (e) {
+                  console.warn(`decode failed for ${target}:`, e);
+                }
+              }
+
+             return (
                 <div key={i} className="rounded border border-gray-200 bg-gray-50 p-4 space-y-1 text-sm text-gray-800 mt-3">
                   <div>
                     <span className="font-medium text-gray-500">Target:</span>{' '}
-                    <code className="break-all text-blue-600">{target}</code>
+                    <code className="text-blue-600 break-all">{target}</code>
                   </div>
                   <div>
                     <span className="font-medium text-gray-500">Decoded:</span>{' '}
                     {decoded ? (
                       <code className="text-purple-600">
                         {decoded.functionName}(
-                        {Array.isArray(decoded.args)
-                          ? decoded.args.map((a, idx) => (
-                              <span key={idx}>
-                                {idx > 0 && ', '}
-                                {JSON.stringify(a)}
-                              </span>
-                            ))
-                          : ''}
+                          {decoded.args.map((a, idx) => (
+                            <span key={idx}>
+                              {idx > 0 && ', '}
+                              {formatArg(a)}
+                            </span>
+                          ))}
                         )
                       </code>
                     ) : (
-                      <span className="text-red-500">Unable to decode</span>
+                      <span className="text-red-500">
+                        {abi ? 'Unable to decode' : 'Loading ABI…'}
+                      </span>
                     )}
                   </div>
                 </div>
-              )
+              );
             })}
+
+
           </>
         )}
       </div>
