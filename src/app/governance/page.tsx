@@ -33,6 +33,9 @@ export default function GovernancePage() {
     number: bigint;
     timestamp: bigint;
   } | null>(null);
+  const [statusFilter, setStatusFilter] = useState<Set<'active' | 'passed' | 'rejected' | 'cancelled'>>(
+    new Set(['active', 'passed'])
+  );
 
 
   const { address: userAddress } = useAccount();
@@ -314,6 +317,20 @@ export default function GovernancePage() {
   const reversedProposals = useMemo(() => proposalData?.slice().reverse(), [proposalData]);
 
 
+  const filteredProposals = useMemo(() => {
+    if (!reversedProposals) return [];
+
+    return reversedProposals.filter((p) => {
+      const state = p.state;
+
+      if (statusFilter.has('active') && (state === 0 || state === 1)) return true;
+      if (statusFilter.has('passed') && (state === 4 || state === 7)) return true;
+      if (statusFilter.has('rejected') && state === 3) return true;
+      if (statusFilter.has('cancelled') && state === 2) return true;
+
+      return false;
+    });
+  }, [reversedProposals, statusFilter]);
 
 
   // ==========================
@@ -333,6 +350,30 @@ export default function GovernancePage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-800">Governance</h1>
+
+
+          <div className="flex gap-4  flex-wrap text-sm text-gray-800">
+            {(['active', 'passed', 'rejected', 'cancelled'] as const).map((status) => (
+              <label key={status} className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={statusFilter.has(status)}
+                  onChange={() => {
+                    setStatusFilter((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(status)) next.delete(status);
+                      else next.add(status);
+                      return next;
+                    });
+                  }}
+                />
+                {status.charAt(0).toUpperCase() + status.slice(1)}
+              </label>
+            ))}
+          </div>
+
+
+
           <button
             onClick={() => {
               if (!hasEnoughStake) {
@@ -360,7 +401,7 @@ export default function GovernancePage() {
 
         {(govProposals && latestBlock && govParams) && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {reversedProposals?.map((p, i) => {
+            {filteredProposals.map((p, i) => {
               const computedId = Number(startIndex) + ((proposalData?.length ?? 0) - i);
               if (computedId === 12) return null;
 
