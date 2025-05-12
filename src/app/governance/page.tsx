@@ -222,13 +222,17 @@ export default function GovernancePage() {
     query: { enabled: !!govProposals },
   });
 
-  const proposalData = govProposals?.map((proposalId: bigint, i: number) => ({
-    id: proposalId,
-    metadata: proposalResults?.[i * 4]?.result as ProposalMetadata,
-    state:    proposalResults?.[i * 4 + 1]?.result as number,
-    votes:    proposalResults?.[i * 4 + 2]?.result as [bigint, bigint, bigint] | undefined,
-    deadline: proposalResults?.[i * 4 + 3]?.result as bigint,
-  }));
+  const proposalData = govProposals?.map((proposalId: bigint, i: number) => {
+    const computedId = Number(startIndex ?? 0) + i + 1;
+    return {
+      id: proposalId,
+      computedId,
+      metadata: proposalResults?.[i * 4]?.result as ProposalMetadata,
+      state:    proposalResults?.[i * 4 + 1]?.result as number,
+      votes:    proposalResults?.[i * 4 + 2]?.result as [bigint, bigint, bigint] | undefined,
+      deadline: proposalResults?.[i * 4 + 3]?.result as bigint,
+    };
+  });
 
   // ==========================
   // Helper Functions
@@ -402,8 +406,6 @@ export default function GovernancePage() {
         {(govProposals && latestBlock && govParams) && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {filteredProposals.map((p, i) => {
-              const computedId = Number(startIndex) + ((proposalData?.length ?? 0) - i);
-              if (computedId === 12) return null;
 
               const status = mapState(p.state as number);
               const timeInfo = getVotingTimeLeft(
@@ -448,12 +450,12 @@ export default function GovernancePage() {
                       {status.label}
                     </span>
                     <span className="text-xs text-gray-400 font-medium">
-                      ID: {computedId}
+                      ID: {p.computedId}
                     </span>
                   </div>
 
                   <Link
-                    href={`/governance/${computedId}`}
+                    href={`/governance/${p.computedId}`}
                     className="block mb-3"
                   >
                     <h2 className="text-lg font-semibold text-blue-700 hover:underline">
