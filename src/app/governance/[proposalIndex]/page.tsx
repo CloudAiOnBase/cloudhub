@@ -440,12 +440,12 @@ export default function ProposalPage() {
     govParams: [bigint, bigint, bigint, bigint, bigint] | undefined,
     stateNum: number | undefined,
     currentUser: string | undefined,
-  ) {
+  ): 0 | 1 | 2 {
     if (!metadata || govParams === undefined || stateNum === undefined || !currentUser) {
-      return false
+      return 0
     }
 
-    const depositClaimed       = metadata[11]            // boolean
+    const depositClaimed       = metadata[11]
     const propVetoVotes        = vetos ?? 0n
     const quorumRequired       = metadata[8] ?? 1n
     const vetoThresholdPercent = Number(govParams[4] ?? 0n)
@@ -454,14 +454,19 @@ export default function ProposalPage() {
     const quorumReached        = totalVotes >= quorumRequired
     const proposer             = metadata[0]?.toLowerCase()
 
-    return (
-      !depositClaimed &&
-      stateNum !== 0 &&                // not Pending
-      stateNum !== 1 &&                // not Active
-      (!vetoed || !quorumReached) &&
-      (currentUser === proposer ||
-       currentUser === '0xe03c69de96ad32520cfcfd46dc3724476071a51c')
-    )
+    const isAuthorized =
+      currentUser === proposer ||
+      currentUser === '0xe03c69de96ad32520cfcfd46dc3724476071a51c'
+
+    if (!isAuthorized) return 0
+    if (depositClaimed) return 2
+
+    const isClosed = stateNum !== 0 && stateNum !== 1
+    if (!isClosed) return 0
+
+    if (vetoed && !quorumReached) return 0
+
+    return 1
   }
 
 
@@ -486,7 +491,7 @@ export default function ProposalPage() {
   const tallyStatus     = mapTallyState(proposalData, govParams)
 
   const totalVotes = proposalData?.totalVotes ?? 1n
-  const canClaim = useMemo(
+  const claimStatus = useMemo(
     () => canClaimDeposit(
            proposalData?.metadata,
            proposalData?.vetos,
@@ -683,8 +688,7 @@ export default function ProposalPage() {
           </p>
         )}
 
-
-       {canClaim && (
+        {claimStatus === 1 && (
           <div className="max-w-3xl mx-auto  py-3 text-center">
             <button
               onClick={handleClaimDeposit}
@@ -693,6 +697,12 @@ export default function ProposalPage() {
               Claim Proposal Deposit
             </button>
            
+          </div>
+        )}
+
+        {claimStatus === 2 && (
+          <div className="text-center text-green-600 text-sm font-medium mt-2">
+            Deposit already claimed.
           </div>
         )}
 
