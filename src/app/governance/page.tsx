@@ -352,29 +352,27 @@ export default function GovernancePage() {
 
       {/* Main Page Content */}
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-4">
           <h1 className="text-2xl font-bold text-gray-800">Governance</h1>
 
-
-          <div className="flex gap-4  flex-wrap text-sm text-gray-800">
+          <div className="flex flex-wrap gap-3 items-center">
             {(['active', 'passed', 'rejected', 'cancelled'] as const).map((status) => (
-              <label key={status} className="flex items-center gap-1">
+              <label key={status} className="inline-flex items-center gap-1 text-sm text-gray-800">
                 <input
                   type="checkbox"
                   checked={statusFilter.has(status)}
                   onChange={() => {
-                    setStatusFilter((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(status)) next.delete(status);
-                      else next.add(status);
-                      return next;
-                    });
+                    const next = new Set(statusFilter);
+                    next.has(status) ? next.delete(status) : next.add(status);
+                    setStatusFilter(next);
                   }}
                 />
                 {status.charAt(0).toUpperCase() + status.slice(1)}
               </label>
             ))}
           </div>
+
 
 
 
