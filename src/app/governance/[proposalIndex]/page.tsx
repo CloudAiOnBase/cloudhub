@@ -105,7 +105,7 @@ export default function ProposalPage() {
     address: governorAddress as `0x${string}`,
     functionName: 'getGovernanceParams',
     query: {},
-  }) as { data: [bigint, bigint, bigint, bigint] | undefined }
+  }) as { data: [bigint, bigint, bigint, bigint, bigint] | undefined }
 
   // Fetch Proposal ID
   const { data: proposalsRaw } = useReadContract({
@@ -404,6 +404,68 @@ export default function ProposalPage() {
   }
 
   // ---------------------------
+  // Claim Deposit Logic
+  // ---------------------------
+
+  const { writeContractAsync: writeClaim } = useWriteContract()
+  const handleClaimDeposit = async () => {
+    if (!proposalData?.id) return
+    let toastId
+    try {
+      toastId = toast.loading('Claiming your deposit...')
+      const txHash = await writeClaim({
+        address: governorAddress,
+        abi: governorAbi,
+        functionName: 'claimDeposit',
+        args: [proposalData.id],
+      })
+      if (!publicClient) return
+      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
+      if (receipt.status === 'success') {
+        toast.success('Deposit claimed!', { id: toastId })
+        refetch()
+      } else {
+        toast.error('Claim failed', { id: toastId })
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error('Error during claim', { id: toastId })
+    }
+  }
+
+  function canClaimDeposit(
+    metadata: ProposalData['metadata'] | undefined,
+    vetos: bigint | undefined,
+    totalVotes: bigint,
+    govParams: [bigint, bigint, bigint, bigint, bigint] | undefined,
+    stateNum: number | undefined,
+    currentUser: string | undefined,
+  ) {
+    if (!metadata || govParams === undefined || stateNum === undefined || !currentUser) {
+      return false
+    }
+
+    const depositClaimed       = metadata[11]            // boolean
+    const propVetoVotes        = vetos ?? 0n
+    const quorumRequired       = metadata[8] ?? 1n
+    const vetoThresholdPercent = Number(govParams[4] ?? 0n)
+    const vetoPercent          = Number((propVetoVotes * 100n) / totalVotes)
+    const vetoed               = vetoPercent >= vetoThresholdPercent
+    const quorumReached        = totalVotes >= quorumRequired
+    const proposer             = metadata[0]?.toLowerCase()
+
+    return (
+      !depositClaimed &&
+      stateNum !== 0 &&                // not Pending
+      stateNum !== 1 &&                // not Active
+      (!vetoed || !quorumReached) &&
+      (currentUser === proposer ||
+       currentUser === '0xe03c69de96ad32520cfcfd46dc3724476071a51c')
+    )
+  }
+
+
+  // ---------------------------
   // Derived UI Variables
   // ---------------------------
   const isTextProposal =
@@ -422,6 +484,20 @@ export default function ProposalPage() {
     BigInt(proposalData?.deadline ?? 0)
   )
   const tallyStatus     = mapTallyState(proposalData, govParams)
+
+  const totalVotes = proposalData?.totalVotes ?? 1n
+  const canClaim = useMemo(
+    () => canClaimDeposit(
+           proposalData?.metadata,
+           proposalData?.vetos,
+           totalVotes,
+           govParams,
+           proposalData?.state,
+           address?.toLowerCase()
+         ),
+    [proposalData, govParams, address]
+  )
+
 
   // ---------------------------
   // Render UI
@@ -606,6 +682,20 @@ export default function ProposalPage() {
             The proposal was cancelled before voting began.
           </p>
         )}
+
+
+       {canClaim && (
+          <div className="max-w-3xl mx-auto  py-3 text-center">
+            <button
+              onClick={handleClaimDeposit}
+              className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg"
+            >
+              Claim Proposal Deposit
+            </button>
+           
+          </div>
+        )}
+
       </div>
 
       {/* Your Vote Section */}

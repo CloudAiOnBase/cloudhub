@@ -511,7 +511,7 @@ export default function GovernancePage() {
 
 
         {/* Bottom Info Row */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm text-gray-600 text-center">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 text-sm text-gray-600 text-center">
           <div>
             <span className="font-bold text-gray-900">Voting period</span>
             <br />
@@ -536,6 +536,13 @@ export default function GovernancePage() {
             <br />
             {govParams?.[2]}%
           </div>
+
+          <div>
+            <span className="font-bold text-gray-900">Veto threshold</span>
+            <br />
+            {govParams?.[4]}%
+          </div>
+
         </div>
       </div>
     </>
