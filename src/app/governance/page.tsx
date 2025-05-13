@@ -568,8 +568,8 @@ export default function GovernancePage() {
           <div>
             <span className="font-bold text-gray-900">Deposit</span>
             <br />
-            {typeof govParams?.[4] === 'bigint'
-              ? format(govParams[4] * 10n ** 18n) + ' CLOUD'
+            {typeof govParams?.[3] === 'bigint'
+              ? format(govParams[3] * 10n ** 18n) + ' CLOUD'
               : '...'}
           </div>
           <div>
