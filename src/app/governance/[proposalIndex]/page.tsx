@@ -404,6 +404,48 @@ export default function ProposalPage() {
   }
 
   // ---------------------------
+  // Execute proposal Logic
+  // ---------------------------
+
+  function canExecuteProposal(state: number | undefined): 0 | 1 | 2 {
+    if (state === 7) return 2; // Already executed
+    if (state === 4) return 1; // Succeeded, ready to execute
+    return 0;                  // Cannot execute
+  }
+
+  const handleExecuteProposal = async () => {
+    if (!proposalData?.metadata || !publicClient) return;
+
+    const [ , title, description, targets, values, calldatas ] = proposalData.metadata;
+
+    let toastId;
+    try {
+      toastId = toast.loading('Executing proposal...');
+
+      const descriptionHash = keccak256(toBytes(description));
+
+      const txHash = await writeContractAsync({
+        address: governorAddress,
+        abi: governorAbi,
+        functionName: 'execute',
+        args: [targets, values, calldatas, descriptionHash],
+      });
+
+      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+
+      if (receipt.status === 'success') {
+        toast.success('Proposal executed!', { id: toastId });
+        refetch();
+      } else {
+        toast.error('Execution failed.', { id: toastId });
+      }
+    } catch (err) {
+      console.error('Execute failed:', err);
+      toast.error('Failed to execute proposal', { id: toastId });
+    }
+  };
+
+  // ---------------------------
   // Claim Deposit Logic
   // ---------------------------
 
@@ -490,8 +532,8 @@ export default function ProposalPage() {
   )
   const tallyStatus     = mapTallyState(proposalData, govParams)
 
-  const totalVotes = proposalData?.totalVotes ?? 1n
-  const claimStatus = useMemo(
+  const totalVotes      = proposalData?.totalVotes ?? 1n
+  const claimStatus     = useMemo(
     () => canClaimDeposit(
            proposalData?.metadata,
            proposalData?.vetos,
@@ -502,6 +544,9 @@ export default function ProposalPage() {
          ),
     [proposalData, govParams, address]
   )
+
+  const canExecute      = isTextProposal ? 0 : canExecuteProposal(proposalData?.state);
+
 
 
   // ---------------------------
@@ -688,8 +733,21 @@ export default function ProposalPage() {
           </p>
         )}
 
+        {canExecute === 1 && (
+          <div className="max-w-3xl mx-auto  py-2 text-center">
+            <button
+              onClick={handleExecuteProposal}
+              className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg"
+            >
+              Execute Proposal
+            </button>
+           
+          </div>
+        )}
+
+
         {claimStatus === 1 && (
-          <div className="max-w-3xl mx-auto  py-3 text-center">
+          <div className="max-w-3xl mx-auto  py-2 text-center">
             <button
               onClick={handleClaimDeposit}
               className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg"
@@ -702,7 +760,7 @@ export default function ProposalPage() {
 
         {claimStatus === 2 && (
           <div className="text-center text-green-600 text-sm font-medium mt-2">
-            Deposit already claimed.
+            Deposit claimed.
           </div>
         )}
 
