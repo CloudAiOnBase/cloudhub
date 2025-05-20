@@ -8,11 +8,14 @@ export function useAllowanceCheck(
   amount: bigint,
   chainId: number
 ) {
-
   type ChainId = keyof typeof CONTRACTS.STAKING_ADDRESSES;
   const tokenAddress = CONTRACTS.TOKEN_ADDRESSES[chainId as ChainId];
 
-  const { data, isLoading } = useReadContract({
+  const {
+    data,
+    isLoading,
+    refetch,
+  } = useReadContract({
     abi: tokenAbi,
     address: tokenAddress as `0x${string}`,
     functionName: 'allowance',
@@ -25,6 +28,5 @@ export function useAllowanceCheck(
   const allowance = data as bigint | undefined;
   const isEnough = allowance !== undefined && allowance >= amount;
 
-  return { allowance, isEnough, isLoading };
+  return { allowance, isEnough, isLoading, refetch }; 
 }
-

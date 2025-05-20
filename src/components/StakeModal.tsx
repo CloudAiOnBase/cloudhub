@@ -74,7 +74,10 @@ export default function StakeModal({ isOpen, onClose, maxAmount, amountUnstaking
 
 			// Wait for the transaction to be mined
       if (!publicClient) return;
-			await publicClient.waitForTransactionReceipt({ hash: txHash2 });
+			const receipt2 = await publicClient.waitForTransactionReceipt({ hash: txHash2 });
+      if (receipt2.status !== 'success') {
+        throw new Error('Transaction failed. Please try again.');
+      }
 
 			await refetchUserBalance();
 			await refetchStakerData();

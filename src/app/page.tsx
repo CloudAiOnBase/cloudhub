@@ -89,6 +89,20 @@ export default function DashboardPage() {
     },
   });
 
+  // Total Supply
+  const {
+    data: totalSupply,
+    refetch: refetchTotalSupply,
+  } = useReadContract({
+    abi: tokenAbi,
+    address: tokenAddress as `0x${string}`,
+    functionName: 'totalSupply',
+    query: {
+      enabled: !!userAddress,
+    },
+  });
+
+
 
   // Total stakers
   const {
@@ -148,6 +162,7 @@ export default function DashboardPage() {
     refetchApr();
     refetchTotalStaked();
     refetchCircSupply();
+    refetchTotalSupply();
     refetchTotalStakers();
     fetchHolders();
     };
@@ -239,7 +254,7 @@ export default function DashboardPage() {
         <p className="text-2xl font-bold text-gray-900 mt-2 flex items-baseline space-x-2">
           <span>
             {circSupply
-              ? `${format(circSupply as bigint, 0)} / 1,000,000,000`
+              ? `${format(circSupply as bigint, 0)} / ${format(totalSupply as bigint, 0)}`
               : 'No data'}
           </span>
           <span className="text-base font-mono text-gray-500">CLOUD</span>

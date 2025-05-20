@@ -1,0 +1,17 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" fill="none">
+  <defs>
+    <linearGradient id="cloudGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e0e7ff" stop-opacity="0.25"></stop>
+      <stop offset="100%" stop-color="#c4b5fd" stop-opacity="0.15"></stop>
+    </linearGradient>
+  </defs>
+  <g transform="translate(20, 20)">
+    <path d="M60 30a30 30 0 0 1 55 10 25 25 0 0 1 15 45H40a25 25 0 0 1-5-50 20 20 0 0 1 25-20z" fill="url(#cloudGradient)"></path>
+    <!-- Circuits -->
+    <circle cx="70" cy="50" r="2" fill="#8884d8"></circle>
+    <circle cx="85" cy="60" r="2" fill="#8884d8"></circle>
+    <circle cx="100" cy="45" r="2" fill="#8884d8"></circle>
+    <line x1="70" y1="50" x2="85" y2="60" stroke="#8884d8" stroke-width="1"></line>
+    <line x1="85" y1="60" x2="100" y2="45" stroke="#8884d8" stroke-width="1"></line>
+  </g>
+</svg>

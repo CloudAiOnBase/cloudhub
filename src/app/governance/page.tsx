@@ -442,7 +442,7 @@ export default function GovernancePage() {
               ];
 
               return (
-                <div key={p.id.toString()} className="bg-white shadow rounded-lg p-4 space-y-4">
+                <div data-id={p.id.toString()} className="bg-white shadow rounded-lg p-4 space-y-4">
                   <div className="flex justify-between items-start">
                     <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${status.color} ${status.bg}`}>
                       {status.label}
@@ -579,7 +579,7 @@ export default function GovernancePage() {
           </div>
 
           <div>
-            <span className="font-bold text-gray-900">Veto threshold</span>
+            <span className="font-bold text-gray-900">Spam threshold</span>
             <br />
             {govParams?.[4]}%
           </div>
