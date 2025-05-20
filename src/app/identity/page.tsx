@@ -274,9 +274,9 @@ console.log(minStakeResult?.data);
              #{(tokenId as bigint).toString()}
             </span>
           )}
-
-          {avatarUrl && !avatarError ? (
             <div className="flex flex-col items-center gap-1 z-10">
+          {avatarUrl && !avatarError ? (
+
               <img
                 src={avatarUrl}
                 alt="Avatar"
@@ -284,19 +284,21 @@ console.log(minStakeResult?.data);
                 onLoad={() => setAvatarLoaded(true)}
                 onError={() => setAvatarError('Failed to load avatar image.')}
               />
-              <button
-                onClick={() => toast('🚧 Coming soon')}
-                className="text-xs text-blue-500 underline hover:text-blue-600 transition"
-              >
-               Edit Avatar
-              </button>
-            </div>
+
 
           ) : (
             <div className="w-28 h-28 rounded-full border flex items-center justify-center bg-gray-100 text-gray-400 z-10 text-sm">
               {avatarError ? '❌ Failed' : '⏳ Loading...'}
             </div>
           )}
+
+              <button
+                onClick={() => toast('🚧 Coming soon')}
+                className="text-xs text-blue-500 underline hover:text-blue-600 transition"
+              >
+               Edit Avatar
+              </button>
+              </div>
 
           <div className="flex flex-col justify-center space-y-1 z-10">
             <p className="text-lg font-semibold">

@@ -280,7 +280,7 @@ console.log(rawTokenId);
       }
 
       // Step 1: Mint with default metadata
-      const defaultTokenUri = "https://files.lighthouse.storage/viewFile/bafkreiganyawrtrdqociinrsxhlkbb5fd6eypwatihsump27wgdyk2zv7a";
+      const defaultTokenUri = "https://gateway.lighthouse.storage/ipfs/bafkreiganyawrtrdqociinrsxhlkbb5fd6eypwatihsump27wgdyk2zv7a";
 
       toast.loading('Minting...', { id: toastId }); 
 
